@@ -1,0 +1,42 @@
+@page
+@model Platform.Admin.Pages.LoginModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Вход";
+}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Вход в админ-панель</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="login-wrap">
+        <section class="login-card">
+            <span class="badge-soft">Защищённый доступ</span>
+            <h1 class="page-title mt-3">Административная панель</h1>
+            <p class="page-subtitle">Управление лицензиями, устройствами, обновлениями и журналом безопасности.</p>
+
+            <form method="post" class="mt-4">
+                <div class="mb-3">
+                    <label asp-for="Input.UserName" class="form-label">Логин</label>
+                    <input asp-for="Input.UserName" class="form-control" autocomplete="username" />
+                </div>
+                <div class="mb-4">
+                    <label asp-for="Input.Password" class="form-label">Пароль</label>
+                    <input asp-for="Input.Password" class="form-control" autocomplete="current-password" />
+                </div>
+                @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+                {
+                    <div class="alert alert-danger">@Model.ErrorMessage</div>
+                }
+                <button type="submit" class="btn btn-primary w-100">Войти</button>
+            </form>
+        </section>
+    </div>
+</body>
+</html>

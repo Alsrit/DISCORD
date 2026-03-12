@@ -1,0 +1,13 @@
+[Unit]
+Description=Secure License Platform API
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/secure-license-platform
+ExecStart=/usr/bin/dotnet /opt/secure-license-platform/publish/api/Platform.Api.dll
+Restart=always
+RestartSec=5
+Environment=ASPNETCORE_ENVIRONMENT=Production
+
+[Install]
+WantedBy=multi-user.target

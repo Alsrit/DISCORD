@@ -1,0 +1,77 @@
+@page
+@model Platform.Admin.Pages.ReleasesModel
+@{
+    ViewData["Title"] = "Обновления";
+}
+
+<header class="page-header">
+    <div>
+        <p class="eyebrow">Каналы релизов</p>
+        <h2 class="page-title">Публикация обновлений</h2>
+        <p class="page-subtitle">Подписанные пакеты, обязательные обновления и история публикаций.</p>
+    </div>
+</header>
+
+<section class="row g-4 mb-4">
+    <div class="col-lg-4">
+        <article class="panel">
+            <h3>Новый релиз</h3>
+            <form method="post" asp-page-handler="Publish" enctype="multipart/form-data" class="mt-3">
+                <div class="mb-3">
+                    <label asp-for="PublishRequest.Version" class="form-label">Версия</label>
+                    <input asp-for="PublishRequest.Version" class="form-control" />
+                </div>
+                <div class="mb-3">
+                    <label asp-for="PublishRequest.Channel" class="form-label">Канал</label>
+                    <select asp-for="PublishRequest.Channel" class="form-select" asp-items="Model.ChannelOptions"></select>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="PublishRequest.MinimumSupportedVersion" class="form-label">Минимальная версия</label>
+                    <input asp-for="PublishRequest.MinimumSupportedVersion" class="form-control" />
+                </div>
+                <div class="mb-3">
+                    <label asp-for="PublishRequest.Summary" class="form-label">Описание</label>
+                    <textarea asp-for="PublishRequest.Summary" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="form-check mb-3">
+                    <input asp-for="PublishRequest.Mandatory" class="form-check-input" />
+                    <label asp-for="PublishRequest.Mandatory" class="form-check-label">Обязательное обновление</label>
+                </div>
+                <div class="mb-4">
+                    <label asp-for="Package" class="form-label">Пакет MSIX/MSIXBundle</label>
+                    <input asp-for="Package" type="file" class="form-control" />
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Опубликовать релиз</button>
+            </form>
+        </article>
+    </div>
+    <div class="col-lg-8">
+        <div class="table-shell">
+            <table class="table table-dark table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Версия</th>
+                        <th>Канал</th>
+                        <th>Состояние</th>
+                        <th>Тип</th>
+                        <th>Публикация</th>
+                        <th>Описание</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in Model.Releases)
+                {
+                    <tr>
+                        <td>@item.Version</td>
+                        <td>@item.Channel</td>
+                        <td>@item.State</td>
+                        <td>@(item.Mandatory ? "Обязательное" : "Обычное")</td>
+                        <td>@(item.PublishedUtc?.ToLocalTime().ToString("g") ?? "-")</td>
+                        <td>@item.Summary</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>

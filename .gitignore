@@ -1,0 +1,16 @@
+.env
+__pycache__/
+*.pyc
+venv/
+bin/
+obj/
+.vs/
+.idea/
+storage/
+deploy/keys/*.pem
+deploy/keys/*.key
+deploy/docker-compose/keys/*.pem
+deploy/docker-compose/.env
+*.user
+*.suo
+*.nupkg

@@ -1,0 +1,50 @@
+@page
+@model Platform.Admin.Pages.DevicesModel
+@{
+    ViewData["Title"] = "Устройства";
+}
+
+<header class="page-header">
+    <div>
+        <p class="eyebrow">Привязка к устройствам</p>
+        <h2 class="page-title">Активированные устройства</h2>
+        <p class="page-subtitle">Просмотр активностей и блокировка проблемных машин.</p>
+    </div>
+</header>
+
+<div class="table-shell">
+    <table class="table table-dark table-hover align-middle">
+        <thead>
+            <tr>
+                <th>Устройство</th>
+                <th>Версия</th>
+                <th>ОС</th>
+                <th>Статус</th>
+                <th>Последняя активность</th>
+                <th>Действие</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var item in Model.Devices)
+        {
+            <tr>
+                <td>
+                    <strong>@item.DeviceName</strong><br />
+                    <span class="text-secondary">@item.MachineName</span>
+                </td>
+                <td>@item.ClientVersion</td>
+                <td>@item.OperatingSystem</td>
+                <td>@item.Status</td>
+                <td>@item.LastSeenUtc.ToLocalTime().ToString("g")</td>
+                <td>
+                    <form method="post" asp-page-handler="Revoke" class="d-flex gap-2">
+                        <input type="hidden" name="deviceId" value="@item.Id" />
+                        <input type="text" name="reason" class="form-control form-control-sm" placeholder="Причина блокировки" />
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Заблокировать</button>
+                    </form>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

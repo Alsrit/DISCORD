@@ -1,0 +1,39 @@
+@page
+@model Platform.Admin.Pages.TelemetryModel
+@{
+    ViewData["Title"] = "Телеметрия";
+}
+
+<header class="page-header">
+    <div>
+        <p class="eyebrow">Наблюдаемость</p>
+        <h2 class="page-title">Телеметрия и ошибки клиента</h2>
+        <p class="page-subtitle">Последние технические события, ошибки обновлений и системные сообщения.</p>
+    </div>
+</header>
+
+<div class="table-shell">
+    <table class="table table-dark table-hover align-middle">
+        <thead>
+            <tr>
+                <th>Время</th>
+                <th>Уровень</th>
+                <th>Событие</th>
+                <th>Сообщение</th>
+                <th>Версия клиента</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var item in Model.Telemetry)
+        {
+            <tr>
+                <td>@item.OccurredUtc.ToLocalTime().ToString("g")</td>
+                <td>@item.Severity</td>
+                <td>@item.EventType</td>
+                <td>@item.Message</td>
+                <td>@item.ClientVersion</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

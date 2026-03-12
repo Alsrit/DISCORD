@@ -1,0 +1,46 @@
+@page
+@model Platform.Admin.Pages.IndexModel
+@{
+    ViewData["Title"] = "Обзор";
+}
+
+<header class="page-header">
+    <div>
+        <p class="eyebrow">Состояние платформы</p>
+        <h2 class="page-title">Обзор системы</h2>
+        <p class="page-subtitle">Ключевые показатели лицензирования, устройств и защищённости.</p>
+    </div>
+</header>
+
+<section class="cards">
+    <article class="stat-card">
+        <h3>Лицензии</h3>
+        <div class="stat-value">@Model.Summary.TotalLicenses</div>
+        <div class="text-secondary">Активных: @Model.Summary.ActiveLicenses</div>
+    </article>
+    <article class="stat-card">
+        <h3>Устройства онлайн</h3>
+        <div class="stat-value">@Model.Summary.OnlineDevices</div>
+        <div class="text-secondary">Заблокировано: @Model.Summary.RevokedDevices</div>
+    </article>
+    <article class="stat-card">
+        <h3>Инциденты</h3>
+        <div class="stat-value">@Model.Summary.PendingIncidents</div>
+        <div class="text-secondary">Требуют разбора</div>
+    </article>
+    <article class="stat-card">
+        <h3>Публикации</h3>
+        <div class="stat-value">@Model.Summary.PublishedReleases</div>
+        <div class="text-secondary">Ошибок за 24ч: @Model.Summary.TelemetryErrorsLast24Hours</div>
+    </article>
+</section>
+
+<section class="panel">
+    <h3>Что отслеживать в первую очередь</h3>
+    <ul class="mb-0">
+        <li>Рост числа ошибок телеметрии и неуспешных активаций.</li>
+        <li>Лицензии, подходящие к окончанию срока действия.</li>
+        <li>Подозрительные попытки refresh и повторного использования ключей.</li>
+        <li>Публикации обязательных обновлений и их установку на клиентах.</li>
+    </ul>
+</section>

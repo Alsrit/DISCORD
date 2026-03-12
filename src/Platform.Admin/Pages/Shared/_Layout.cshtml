@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Secure License Platform</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="admin-shell">
+    <div class="app-grid">
+        <aside class="sidebar">
+            <div>
+                <p class="eyebrow">Secure License Platform</p>
+                <h1 class="brand">Центр лицензирования</h1>
+                <p class="brand-copy">Активации, устройства, обновления и журнал безопасности.</p>
+            </div>
+            <nav class="nav flex-column gap-2">
+                <a class="nav-link" asp-page="/Index">Обзор</a>
+                <a class="nav-link" asp-page="/Licenses">Лицензии</a>
+                <a class="nav-link" asp-page="/Devices">Устройства</a>
+                <a class="nav-link" asp-page="/Releases">Обновления</a>
+                <a class="nav-link" asp-page="/Telemetry">Телеметрия</a>
+                <a class="nav-link" asp-page="/Security">Безопасность</a>
+            </nav>
+            <form method="post" asp-page="/Logout">
+                <button type="submit" class="btn btn-outline-light w-100 mt-4">Выйти</button>
+            </form>
+        </aside>
+        <main class="content">
+            @if (TempData["StatusMessage"] is string statusMessage)
+            {
+                <div class="alert alert-success">@statusMessage</div>
+            }
+            @if (TempData["ErrorMessage"] is string errorMessage)
+            {
+                <div class="alert alert-danger">@errorMessage</div>
+            }
+            @RenderBody()
+        </main>
+    </div>
+
+    @RenderSection("Scripts", required: false)
+</body>
+</html>

@@ -1,0 +1,13 @@
+[Unit]
+Description=Secure License Platform Worker
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/secure-license-platform
+ExecStart=/usr/bin/dotnet /opt/secure-license-platform/publish/worker/Platform.Worker.dll
+Restart=always
+RestartSec=5
+Environment=DOTNET_ENVIRONMENT=Production
+
+[Install]
+WantedBy=multi-user.target
