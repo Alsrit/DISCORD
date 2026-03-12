@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.HttpOverrides;
 using Platform.Api.Authentication;
 using Platform.Infrastructure.Extensions;
 using Platform.Infrastructure.Persistence;
@@ -13,6 +14,12 @@ builder.Services.AddPlatformInfrastructure(builder.Configuration);
 builder.Services.AddAuthentication("ClientBearer")
     .AddScheme<AuthenticationSchemeOptions, OpaqueTokenAuthenticationHandler>("ClientBearer", _ => { });
 builder.Services.AddAuthorization();
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownProxies.Add(System.Net.IPAddress.Parse("127.0.0.1"));
+    options.KnownProxies.Add(System.Net.IPAddress.IPv6Loopback);
+});
 
 var app = builder.Build();
 
@@ -21,6 +28,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
