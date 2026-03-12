@@ -251,6 +251,49 @@ public sealed class AdminPlatformService(
         return OperationResult.Success("Лицензия отозвана.");
     }
 
+    public async Task<OperationResult> DeleteLicenseAsync(
+        DeleteLicenseRequest request,
+        RequestContext context,
+        CancellationToken cancellationToken)
+    {
+        var license = await dbContext.Licenses
+            .Include(x => x.Devices)
+            .Include(x => x.Sessions)
+            .Include(x => x.Activations)
+            .FirstOrDefaultAsync(x => x.Id == request.LicenseId, cancellationToken);
+
+        if (license is null)
+        {
+            return OperationResult.Failure("Лицензия не найдена.", "license_not_found");
+        }
+
+        var hasUsage =
+            license.Devices.Count != 0 ||
+            license.Sessions.Count != 0 ||
+            license.Activations.Count != 0;
+
+        if (hasUsage)
+        {
+            return OperationResult.Failure(
+                "Лицензию уже использовали. Для таких ключей доступен отзыв, а не удаление.",
+                "license_in_use");
+        }
+
+        var maskedKey = license.LicenseKeyMasked;
+        var customerEmail = license.CustomerEmail;
+
+        dbContext.Licenses.Remove(license);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        logger.LogWarning(
+            "Удалена неиспользованная лицензия {MaskedKey} для {CustomerEmail}. Инициатор: {Actor}",
+            maskedKey,
+            customerEmail,
+            context.AdminUserName ?? context.IpAddress);
+
+        return OperationResult.Success("Лицензия удалена.");
+    }
+
     public async Task<OperationResult> RevokeDeviceAsync(
         RevokeDeviceRequest request,
         RequestContext context,

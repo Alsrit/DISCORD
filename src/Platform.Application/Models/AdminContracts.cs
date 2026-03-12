@@ -82,6 +82,8 @@ public sealed record ExtendLicenseRequest(Guid LicenseId, DateTimeOffset? NewExp
 
 public sealed record RevokeLicenseRequest(Guid LicenseId, string Reason);
 
+public sealed record DeleteLicenseRequest(Guid LicenseId);
+
 public sealed record RevokeDeviceRequest(Guid DeviceId, string Reason);
 
 public sealed record PublishReleaseRequest(

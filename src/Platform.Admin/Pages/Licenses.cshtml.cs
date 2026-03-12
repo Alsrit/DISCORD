@@ -12,6 +12,9 @@ namespace Platform.Admin.Pages;
 [Authorize]
 public sealed class LicensesModel(IAdminPlatformService adminPlatformService) : PageModel
 {
+    [TempData]
+    public string? CreatedLicenseKey { get; set; }
+
     [BindProperty]
     public CreateLicenseRequest CreateRequest { get; set; } = new(
         string.Empty,
@@ -46,10 +49,20 @@ public sealed class LicensesModel(IAdminPlatformService adminPlatformService) : 
 
     public async Task<IActionResult> OnPostCreateAsync(CancellationToken cancellationToken)
     {
-        var result = await adminPlatformService.CreateLicenseAsync(CreateRequest, HttpContext.ToRequestContext(), cancellationToken);
-        TempData[result.Succeeded ? "StatusMessage" : "ErrorMessage"] = result.Succeeded
-            ? $"Лицензия создана. Ключ: {result.Data}"
-            : result.Message;
+        var result = await adminPlatformService.CreateLicenseAsync(
+            CreateRequest,
+            HttpContext.ToRequestContext(),
+            cancellationToken);
+
+        if (result.Succeeded)
+        {
+            CreatedLicenseKey = result.Data;
+            TempData["StatusMessage"] = result.Message;
+        }
+        else
+        {
+            TempData["ErrorMessage"] = result.Message;
+        }
 
         return RedirectToPage();
     }
@@ -69,6 +82,17 @@ public sealed class LicensesModel(IAdminPlatformService adminPlatformService) : 
     {
         var result = await adminPlatformService.RevokeLicenseAsync(
             new RevokeLicenseRequest(licenseId, reason),
+            HttpContext.ToRequestContext(),
+            cancellationToken);
+
+        TempData[result.Succeeded ? "StatusMessage" : "ErrorMessage"] = result.Message;
+        return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostDeleteAsync(Guid licenseId, CancellationToken cancellationToken)
+    {
+        var result = await adminPlatformService.DeleteLicenseAsync(
+            new DeleteLicenseRequest(licenseId),
             HttpContext.ToRequestContext(),
             cancellationToken);
 

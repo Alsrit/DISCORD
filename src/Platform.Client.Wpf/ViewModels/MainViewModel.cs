@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Reflection;
 using Platform.Application.Models;
 using Platform.Client.Core.Configuration;
@@ -448,7 +449,13 @@ public sealed class MainViewModel : ObservableObject
         };
 
         _settingsStore.Save(settings);
-        _autostartService.Apply(Environment.ProcessPath ?? Assembly.GetExecutingAssembly().Location, EnableAutostart);
+        var processPath = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(processPath))
+        {
+            processPath = Path.Combine(AppContext.BaseDirectory, "Platform.Client.Wpf.exe");
+        }
+
+        _autostartService.Apply(processPath, EnableAutostart);
         StatusMessage = "Настройки сохранены.";
     }
 

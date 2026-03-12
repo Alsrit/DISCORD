@@ -1,5 +1,5 @@
 {
-  "ServerBaseUrl": "https://localhost:7043",
+  "ServerBaseUrl": "https://194.116.217.48",
   "PreferredChannel": "Stable",
   "AutoCheckUpdates": true,
   "EnableAutostart": false,

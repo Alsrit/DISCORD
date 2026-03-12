@@ -35,6 +35,11 @@ public interface IAdminPlatformService
         RequestContext context,
         CancellationToken cancellationToken);
 
+    Task<OperationResult> DeleteLicenseAsync(
+        DeleteLicenseRequest request,
+        RequestContext context,
+        CancellationToken cancellationToken);
+
     Task<OperationResult> RevokeDeviceAsync(
         RevokeDeviceRequest request,
         RequestContext context,
