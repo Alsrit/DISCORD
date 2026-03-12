@@ -5,6 +5,6 @@
   "EnableAutostart": false,
   "RequireCertificatePinning": false,
   "PinnedSpkiSha256": [],
-  "UpdatePublicKeyPath": "C:\\SecureLicensePlatform\\keys\\update-public.pem",
+  "UpdatePublicKeyPath": "",
   "InstallationId": "auto-generated-on-first-run"
 }

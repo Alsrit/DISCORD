@@ -450,6 +450,12 @@ public sealed class MainViewModel : ObservableObject
             var result = await _updateInstallerService.InstallAsync(downloadedPath, CancellationToken.None);
             UpdateStatusText = result.Message;
             StatusMessage = result.Message;
+
+            if (result.Succeeded && string.Equals(Path.GetExtension(downloadedPath), ".zip", StringComparison.OrdinalIgnoreCase))
+            {
+                await Task.Delay(900);
+                System.Windows.Application.Current.Shutdown();
+            }
         }
         finally
         {
@@ -501,6 +507,11 @@ public sealed class MainViewModel : ObservableObject
         RequireCertificatePinning = settings.RequireCertificatePinning;
         PinnedCertificatesText = string.Join(Environment.NewLine, settings.PinnedSpkiSha256);
         UpdatePublicKeyPath = settings.UpdatePublicKeyPath;
+
+        if (string.IsNullOrWhiteSpace(UpdatePublicKeyPath))
+        {
+            UpdatePublicKeyPath = _updateVerificationService.GetEffectivePublicKeyPath() ?? string.Empty;
+        }
     }
 
     private void ApplyLicense(LicenseStatusDto license)

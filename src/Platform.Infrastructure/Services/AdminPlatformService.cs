@@ -347,6 +347,12 @@ public sealed class AdminPlatformService(
             return OperationResult.Failure("Файл пакета обновления пуст.", "empty_package");
         }
 
+        var extension = Path.GetExtension(package.FileName).ToLowerInvariant();
+        if (extension is not ".zip" and not ".msix" and not ".msixbundle")
+        {
+            return OperationResult.Failure("Поддерживаются пакеты ZIP, MSIX и MSIXBundle.", "unsupported_package");
+        }
+
         var channelCode = VersioningHelper.ToChannelCode(request.Channel);
         var channel = await dbContext.UpdateChannels.FirstOrDefaultAsync(x => x.Code == channelCode, cancellationToken);
         if (channel is null)

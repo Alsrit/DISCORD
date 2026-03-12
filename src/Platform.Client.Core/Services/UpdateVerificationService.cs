@@ -10,7 +10,8 @@ public sealed class UpdateVerificationService(ClientSettingsStore settingsStore)
     public bool VerifyPackage(UpdatePackageDto package, string filePath)
     {
         var settings = settingsStore.Load();
-        if (string.IsNullOrWhiteSpace(settings.UpdatePublicKeyPath) || !File.Exists(settings.UpdatePublicKeyPath))
+        var publicKeyPath = ResolvePublicKeyPath(settings);
+        if (publicKeyPath is null)
         {
             return false;
         }
@@ -29,8 +30,25 @@ public sealed class UpdateVerificationService(ClientSettingsStore settingsStore)
         }
 
         using var rsa = RSA.Create();
-        rsa.ImportFromPem(File.ReadAllText(settings.UpdatePublicKeyPath));
+        rsa.ImportFromPem(File.ReadAllText(publicKeyPath));
         var signature = Convert.FromBase64String(package.SignatureBase64);
         return rsa.VerifyData(Encoding.UTF8.GetBytes(package.SignaturePayload), signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+    }
+
+    public string? GetEffectivePublicKeyPath()
+    {
+        var settings = settingsStore.Load();
+        return ResolvePublicKeyPath(settings);
+    }
+
+    private static string? ResolvePublicKeyPath(ClientSettings settings)
+    {
+        if (!string.IsNullOrWhiteSpace(settings.UpdatePublicKeyPath) && File.Exists(settings.UpdatePublicKeyPath))
+        {
+            return settings.UpdatePublicKeyPath;
+        }
+
+        var bundledKeyPath = Path.Combine(AppContext.BaseDirectory, "keys", "update-public.pem");
+        return File.Exists(bundledKeyPath) ? bundledKeyPath : null;
     }
 }

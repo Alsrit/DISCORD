@@ -8,7 +8,7 @@
     <div>
         <p class="eyebrow">Каналы релизов</p>
         <h2 class="page-title">Публикация обновлений</h2>
-        <p class="page-subtitle">Подписанные пакеты, обязательные обновления и история публикаций.</p>
+        <p class="page-subtitle">Подписанные пакеты клиента, обязательные обновления и история публикаций. Для self-update рекомендуется ZIP portable-пакет.</p>
     </div>
 </header>
 
@@ -37,10 +37,11 @@
                     <input asp-for="PublishRequest.Mandatory" class="form-check-input" />
                     <label asp-for="PublishRequest.Mandatory" class="form-check-label">Обязательное обновление</label>
                 </div>
-                <div class="mb-4">
-                    <label asp-for="Package" class="form-label">Пакет MSIX/MSIXBundle</label>
+                <div class="mb-2">
+                    <label asp-for="Package" class="form-label">Пакет клиента ZIP/MSIX/MSIXBundle</label>
                     <input asp-for="Package" type="file" class="form-control" />
                 </div>
+                <p class="form-text mb-4">ZIP portable-пакет подходит для автоматического обновления поверх текущей версии без отдельного установщика.</p>
                 <button type="submit" class="btn btn-primary w-100">Опубликовать релиз</button>
             </form>
         </article>
