@@ -7,9 +7,6 @@ PUBLISH_DIR="${ROOT_DIR}/publish"
 echo "==> Restoring tools"
 dotnet tool restore
 
-echo "==> Building solution"
-dotnet build "${ROOT_DIR}/SecureLicensePlatform.sln" -c Release
-
 echo "==> Publishing API"
 dotnet publish "${ROOT_DIR}/src/Platform.Api/Platform.Api.csproj" -c Release -o "${PUBLISH_DIR}/api"
 
