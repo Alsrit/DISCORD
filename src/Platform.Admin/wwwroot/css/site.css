@@ -2,12 +2,17 @@
   --bg: #08111d;
   --panel: rgba(16, 23, 36, 0.92);
   --panel-strong: #101826;
+  --panel-soft: #0d1827;
   --text: #edf3fb;
   --muted: #9db0c9;
   --line: rgba(175, 195, 220, 0.14);
   --accent: #53d3c5;
   --accent-2: #f0b45a;
   --danger: #ff6f7d;
+  --success-bg: rgba(83, 211, 197, 0.16);
+  --success-line: rgba(83, 211, 197, 0.34);
+  --danger-bg: rgba(255, 111, 125, 0.14);
+  --danger-line: rgba(255, 111, 125, 0.34);
 }
 
 html, body {
@@ -155,6 +160,44 @@ table {
   box-shadow: 0 0 0 0.25rem rgba(83, 211, 197, 0.12);
 }
 
+.form-control::placeholder {
+  color: rgba(157, 176, 201, 0.7);
+}
+
+.form-control[readonly],
+.form-control:disabled {
+  background: linear-gradient(135deg, rgba(18, 31, 49, 0.98), rgba(10, 20, 33, 0.98));
+  border-color: rgba(83, 211, 197, 0.24);
+  color: #f3fbff;
+  opacity: 1;
+}
+
+.license-key-output {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #f3fbff !important;
+  box-shadow: inset 0 0 0 1px rgba(83, 211, 197, 0.08);
+}
+
+.alert {
+  border-radius: 18px;
+  border: 1px solid transparent;
+  padding: 16px 18px;
+  color: var(--text);
+}
+
+.alert-success {
+  background: var(--success-bg);
+  border-color: var(--success-line);
+  color: #d8fff6;
+}
+
+.alert-danger {
+  background: var(--danger-bg);
+  border-color: var(--danger-line);
+  color: #ffd7dd;
+}
+
 .btn-primary {
   background: linear-gradient(135deg, #53d3c5, #2ea6bf);
   border: none;
@@ -165,6 +208,17 @@ table {
 .btn-warning {
   color: #111;
   font-weight: 700;
+}
+
+.btn-outline-light {
+  color: var(--text);
+  border-color: rgba(237, 243, 251, 0.75);
+}
+
+.btn-outline-light:hover {
+  color: #051018;
+  background: #edf3fb;
+  border-color: #edf3fb;
 }
 
 .login-wrap {
