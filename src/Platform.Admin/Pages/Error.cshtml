@@ -1,0 +1,26 @@
+@page
+@model Platform.Admin.Pages.ErrorModel
+@{
+    ViewData["Title"] = "Ошибка";
+}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ошибка</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="login-wrap">
+        <section class="login-card">
+            <span class="badge-soft">Серверная ошибка</span>
+            <h1 class="page-title mt-3">Не удалось выполнить действие</h1>
+            <p class="page-subtitle">Попробуй ещё раз. Если ошибка повторится, проверь журнал сервера и последние действия в админ-панели.</p>
+            <a class="btn btn-primary w-100 mt-4" href="/Licenses">Вернуться к лицензиям</a>
+        </section>
+    </div>
+</body>
+</html>

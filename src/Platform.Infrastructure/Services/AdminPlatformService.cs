@@ -142,15 +142,15 @@ public sealed class AdminPlatformService(
             LicenseKeyHash = licenseKeyProtector.Hash(rawKey),
             LicenseKeyMasked = licenseKeyProtector.Mask(rawKey),
             LookupPrefix = licenseKeyProtector.GetLookupPrefix(rawKey),
-            CustomerName = request.CustomerName,
-            CustomerEmail = request.CustomerEmail,
+            CustomerName = request.CustomerName?.Trim() ?? string.Empty,
+            CustomerEmail = request.CustomerEmail?.Trim() ?? string.Empty,
             Type = request.Type,
             State = LicenseState.Active,
             MaxDevices = request.MaxDevices,
             OfflineGracePeriodHours = request.OfflineGracePeriodHours,
             ExpiresUtc = request.ExpiresUtc,
             UpdateChannel = request.UpdateChannel,
-            Notes = request.Notes
+            Notes = request.Notes?.Trim() ?? string.Empty
         };
 
         dbContext.Licenses.Add(license);
