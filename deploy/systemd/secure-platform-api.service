@@ -3,7 +3,7 @@ Description=Secure License Platform API
 After=network.target
 
 [Service]
-WorkingDirectory=/opt/secure-license-platform
+WorkingDirectory=/opt/secure-license-platform/publish/api
 EnvironmentFile=-/etc/secure-platform/api.env
 ExecStart=/usr/bin/dotnet /opt/secure-license-platform/publish/api/Platform.Api.dll
 Restart=always

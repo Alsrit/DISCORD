@@ -19,12 +19,21 @@ public sealed class PlatformSeeder(
     IOptions<SeedOptions> options,
     ILogger<PlatformSeeder> logger) : IPlatformSeeder
 {
+    private const long SeedLockId = 5_837_219_114_203_317_921;
+
     private readonly SeedOptions _options = options.Value;
     private readonly PasswordHasher<AdminUser> _passwordHasher = new();
 
     public async Task SeedAsync(CancellationToken cancellationToken)
     {
         await dbContext.Database.MigrateAsync(cancellationToken);
+
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        // A single advisory lock keeps API, admin panel and worker from seeding in parallel.
+        await dbContext.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_xact_lock({SeedLockId})",
+            cancellationToken);
 
         if (!await dbContext.UpdateChannels.AnyAsync(cancellationToken))
         {
@@ -84,5 +93,6 @@ public sealed class PlatformSeeder(
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 }

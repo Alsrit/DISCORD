@@ -3,7 +3,7 @@ Description=Secure License Platform Worker
 After=network.target
 
 [Service]
-WorkingDirectory=/opt/secure-license-platform
+WorkingDirectory=/opt/secure-license-platform/publish/worker
 EnvironmentFile=-/etc/secure-platform/worker.env
 ExecStart=/usr/bin/dotnet /opt/secure-license-platform/publish/worker/Platform.Worker.dll
 Restart=always

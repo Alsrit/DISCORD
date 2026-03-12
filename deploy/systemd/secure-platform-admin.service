@@ -3,7 +3,7 @@ Description=Secure License Platform Admin
 After=network.target
 
 [Service]
-WorkingDirectory=/opt/secure-license-platform
+WorkingDirectory=/opt/secure-license-platform/publish/admin
 EnvironmentFile=-/etc/secure-platform/admin.env
 ExecStart=/usr/bin/dotnet /opt/secure-license-platform/publish/admin/Platform.Admin.dll
 Restart=always
