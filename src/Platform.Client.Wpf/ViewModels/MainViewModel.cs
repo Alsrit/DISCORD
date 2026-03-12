@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Net.Http;
 using System.Reflection;
+using System.Security.Authentication;
 using Platform.Application.Models;
 using Platform.Client.Core.Configuration;
 using Platform.Client.Core.Models;
@@ -64,10 +66,10 @@ public sealed class MainViewModel : ObservableObject
         _autostartService = autostartService;
 
         NavigateCommand = new RelayCommand<string>(section => CurrentSection = section ?? "Dashboard");
-        ActivateCommand = new AsyncRelayCommand(ActivateAsync);
-        SyncCommand = new AsyncRelayCommand(() => RefreshStateAsync(true));
-        CheckUpdatesCommand = new AsyncRelayCommand(CheckUpdatesAsync);
-        InstallUpdateCommand = new AsyncRelayCommand(InstallPendingUpdateAsync, () => HasPendingUpdate);
+        ActivateCommand = new AsyncRelayCommand(ActivateAsync, onError: ex => HandleUnhandledException(ex, "Активация"));
+        SyncCommand = new AsyncRelayCommand(() => RefreshStateAsync(true), onError: ex => HandleUnhandledException(ex, "Синхронизация"));
+        CheckUpdatesCommand = new AsyncRelayCommand(CheckUpdatesAsync, onError: ex => HandleUnhandledException(ex, "Проверка обновлений"));
+        InstallUpdateCommand = new AsyncRelayCommand(InstallPendingUpdateAsync, () => HasPendingUpdate, ex => HandleUnhandledException(ex, "Установка обновления"));
         SaveSettingsCommand = new RelayCommand(SaveSettings);
         RefreshLogsCommand = new RelayCommand(LoadLogs);
         ResetSessionCommand = new RelayCommand(() =>
@@ -268,11 +270,18 @@ public sealed class MainViewModel : ObservableObject
 
     public async Task InitializeAsync()
     {
-        IsActivated = _tokenStore.Load() is not null;
-        await RefreshStateAsync(false);
-        if (IsActivated && AutoCheckUpdates)
+        try
         {
-            await CheckUpdatesAsync();
+            IsActivated = _tokenStore.Load() is not null;
+            await RefreshStateAsync(false);
+            if (IsActivated && AutoCheckUpdates)
+            {
+                await CheckUpdatesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            HandleUnhandledException(ex, "Инициализация");
         }
     }
 
@@ -308,6 +317,21 @@ public sealed class MainViewModel : ObservableObject
         {
             IsBusy = false;
         }
+    }
+
+    private void HandleUnhandledException(Exception exception, string operation)
+    {
+        var message = exception switch
+        {
+            HttpRequestException => "Не удалось подключиться к серверу. Проверьте адрес сервера и доверие к сертификату.",
+            AuthenticationException => "Сертификат сервера не прошёл проверку. Нужно доверить сертификат на этом ПК.",
+            _ => $"Во время операции \"{operation}\" произошла ошибка."
+        };
+
+        StatusMessage = message;
+        DiagnosticsText = $"{operation}:{Environment.NewLine}{exception.Message}";
+        _logService.Write("Error", operation, message, new { exception = exception.ToString() });
+        LoadLogs();
     }
 
     private async Task RefreshStateAsync(bool heartbeat)
