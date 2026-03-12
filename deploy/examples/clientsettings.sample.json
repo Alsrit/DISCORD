@@ -1,5 +1,5 @@
 {
-  "ServerBaseUrl": "https://194.116.217.48",
+  "ServerBaseUrl": "https://194.116.217.48:8443",
   "PreferredChannel": "Stable",
   "AutoCheckUpdates": true,
   "EnableAutostart": false,
