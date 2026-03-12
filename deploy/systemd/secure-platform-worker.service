@@ -4,6 +4,7 @@ After=network.target
 
 [Service]
 WorkingDirectory=/opt/secure-license-platform
+EnvironmentFile=-/etc/secure-platform/worker.env
 ExecStart=/usr/bin/dotnet /opt/secure-license-platform/publish/worker/Platform.Worker.dll
 Restart=always
 RestartSec=5
