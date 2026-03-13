@@ -82,5 +82,66 @@ public enum SecurityIncidentType
     DeviceRevokedAttempt = 5,
     UpdateSignatureFailure = 6,
     CertificatePinMismatch = 7,
-    SessionRejected = 8
+    SessionRejected = 8,
+    TranslationRateLimited = 9,
+    TranslationQuotaExceeded = 10,
+    TranslationPayloadRejected = 11,
+    TranslationProviderFailure = 12,
+    TranslationReplayDetected = 13,
+    TranslationPathTraversalDetected = 14
+}
+
+public enum TranslationJobState
+{
+    Pending = 1,
+    Queued = 2,
+    Processing = 3,
+    Completed = 4,
+    Failed = 5,
+    CancelRequested = 6,
+    Cancelled = 7,
+    Expired = 8
+}
+
+public enum TranslationFileState
+{
+    Pending = 1,
+    Processing = 2,
+    Completed = 3,
+    Failed = 4,
+    Cancelled = 5
+}
+
+public enum TranslationSegmentState
+{
+    Pending = 1,
+    Protected = 2,
+    Translated = 3,
+    Validated = 4,
+    Failed = 5,
+    Skipped = 6
+}
+
+public enum TranslationJobItemState
+{
+    Pending = 1,
+    Processing = 2,
+    Retrying = 3,
+    Completed = 4,
+    Failed = 5,
+    Cancelled = 6
+}
+
+public enum TranslationGlossaryScope
+{
+    System = 1,
+    Game = 2,
+    License = 3
+}
+
+public enum TranslationArtifactType
+{
+    ResultPackage = 1,
+    ManifestPreview = 2,
+    AnalysisReport = 3
 }

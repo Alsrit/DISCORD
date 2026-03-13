@@ -20,6 +20,20 @@ public interface IAdminPlatformService
 
     Task<IReadOnlyCollection<SecurityIncidentDto>> GetSecurityIncidentsAsync(CancellationToken cancellationToken);
 
+    Task<PagedResultDto<TranslationJobAdminListItemDto>> GetTranslationJobsAsync(
+        TranslationJobListQuery query,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<TranslationUsageAdminDto>> GetTranslationUsageAsync(CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<TranslationQuotaAdminDto>> GetTranslationQuotasAsync(CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<TranslationGlossaryAdminDto>> GetTranslationGlossariesAsync(CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<TranslationProviderAdminDto>> GetTranslationProvidersAsync(CancellationToken cancellationToken);
+
+    Task<TranslationQueueStatusDto> GetTranslationQueueStatusAsync(CancellationToken cancellationToken);
+
     Task<OperationResult<string>> CreateLicenseAsync(
         CreateLicenseRequest request,
         RequestContext context,
@@ -48,6 +62,21 @@ public interface IAdminPlatformService
     Task<OperationResult> PublishReleaseAsync(
         PublishReleaseRequest request,
         IFormFile package,
+        RequestContext context,
+        CancellationToken cancellationToken);
+
+    Task<OperationResult> UpsertTranslationQuotaAsync(
+        UpsertTranslationQuotaRequest request,
+        RequestContext context,
+        CancellationToken cancellationToken);
+
+    Task<OperationResult> UpsertTranslationGlossaryAsync(
+        UpsertTranslationGlossaryRequest request,
+        RequestContext context,
+        CancellationToken cancellationToken);
+
+    Task<OperationResult> SetTranslationProviderStateAsync(
+        SetTranslationProviderStateRequest request,
         RequestContext context,
         CancellationToken cancellationToken);
 

@@ -1,71 +1,57 @@
 # Secure License Platform
 
-Безопасная платформа лицензирования и обновления Windows-приложений на базе `.NET 8`, `ASP.NET Core`, `PostgreSQL`, `Redis` и `WPF`.
+Серверная платформа лицензирования и перевода модов Stellaris на `.NET 8`.
 
-Текущая реализация даёт рабочий фундамент для реального продукта:
-- онлайн-активация лицензий;
-- привязка лицензии к устройству;
-- отзыв лицензии и устройства;
-- серверная проверка состояния лицензии;
-- сессии клиента с access/refresh токенами;
-- телеметрия, аудит и журнал безопасности;
-- публикация подписанных обновлений;
-- русскоязычная админ-панель;
-- русскоязычный WPF-клиент с тёмной темой;
-- миграции EF Core и seed-данные.
+Текущее состояние репозитория после этапов 1 и 2:
+- существующая лицензионная платформа сохранена и расширена, а не переписана с нуля;
+- сервер умеет принимать job-based задания на перевод и возвращать результат архивом;
+- перевод выполняется только на сервере через provider abstraction;
+- лицензии, квоты, glossary, очередь, аудит и результаты контролируются сервером;
+- WPF-клиент получил мастер перевода модов, загрузку результата и безопасную сборку отдельного сабмода.
 
-Старые Python-файлы в `app/`, `clients/`, `deploy/docker-compose/` сохранены как legacy-артефакты и не используются новой .NET-платформой.
-
-## Архитектурная схема
+## Архитектура
 
 ```text
-WPF Client (.NET 8, DPAPI, pinning, проверка подписи обновлений)
+WPF Client
     |
-    | HTTPS + certificate pinning + opaque bearer token
+    | HTTPS + opaque session tokens
     v
 ASP.NET Core API
-    |-- сервис лицензирования
-    |-- сервис обновлений
-    |-- сервис телеметрии
-    |-- аудит и security incidents
+    |-- licensing/session endpoints
+    |-- translation analyze/jobs endpoints
+    |-- quotas / glossary / languages
     |
     +--> PostgreSQL
-    +--> Redis
-    +--> release storage
+    +--> Redis (rate limit + queue storage)
+    +--> translation storage
 
 ASP.NET Core Admin
-    |-- cookie auth
-    |-- роли: Administrator / Operator / Auditor
-    |-- лицензии / устройства / релизы / телеметрия / безопасность
+    |-- лицензии / устройства / релизы
+    |-- переводы, queue status, quotas, provider state, glossary
 
 Worker Service
-    |-- истечение refresh-сессий
-    |-- очистка старой телеметрии
-    |-- периодический seed / service maintenance
+    |-- session maintenance
+    |-- telemetry cleanup
+    |-- translation job processing
+    |-- stale jobs / snapshot / temp cleanup
 ```
 
-## Список модулей
+## Изменённые проекты
 
-```text
-src/
-  Platform.Domain/          доменные сущности и enum
-  Platform.Application/     DTO, интерфейсы сервисов, контракты
-  Platform.Infrastructure/  EF Core, PostgreSQL, Redis, криптография, сервисы
-  Platform.Api/             клиентский API
-  Platform.Admin/           веб-админка на Razor Pages
-  Platform.Worker/          фоновые задачи
-  Platform.Client.Core/     безопасное хранилище, API-клиент, обновления
-  Platform.Client.Wpf/      русский WPF-клиент
-deploy/
-  docker-compose.platform.yml
-  examples/clientsettings.sample.json
-  keys/.gitkeep
-scripts/
-  generate-update-signing-key.ps1
-```
+- `src/Platform.Domain`
+- `src/Platform.Application`
+- `src/Platform.Infrastructure`
+- `src/Platform.Api`
+- `src/Platform.Admin`
+- `src/Platform.Worker`
+- `src/Platform.Client.Core`
+- `src/Platform.Client.Wpf`
+- `tests/Platform.Server.Tests`
+- `tests/Platform.Client.Tests`
 
 ## Основные сущности БД
 
+Старые сущности сохранены:
 - `License`
 - `Device`
 - `ClientSession`
@@ -78,12 +64,41 @@ scripts/
 - `ReleaseArtifact`
 - `AdminUser`
 
-Миграции лежат в [`src/Platform.Infrastructure/Persistence/Migrations`](C:/DISCORD/src/Platform.Infrastructure/Persistence/Migrations).
+Новые translation-сущности:
+- `TranslationJob`
+- `TranslationJobItem`
+- `TranslationSegment`
+- `TranslationFile`
+- `TranslationProviderSettings`
+- `TranslationGlossary`
+- `TranslationQuota`
+- `TranslationUsage`
+- `TranslationAuditEvent`
+- `SubmodBuildArtifact`
+- `ModAnalysisSnapshot`
+
+Миграции:
+- [`20260313084306_AddTranslationPipeline.cs`](/C:/DISCORD/src/Platform.Infrastructure/Persistence/Migrations/20260313084306_AddTranslationPipeline.cs)
+- snapshot: [`PlatformDbContextModelSnapshot.cs`](/C:/DISCORD/src/Platform.Infrastructure/Persistence/Migrations/PlatformDbContextModelSnapshot.cs)
+
+## Серверный pipeline перевода
+
+1. Клиент вызывает `POST /api/client/v1/mods/analyze`.
+2. Сервер валидирует payload, размеры, sha256 и безопасные пути.
+3. Сервер создаёт `ModAnalysisSnapshot`.
+4. Клиент вызывает `POST /api/client/v1/translations/jobs`.
+5. Сервер проверяет сессию, лицензию, device binding и quota.
+6. Сервер создаёт `TranslationJob`, `TranslationFile`, `TranslationSegment`.
+7. Job кладётся в очередь Redis с fallback на DB scan.
+8. Worker забирает job, защищает placeholders и service tokens.
+9. Worker отправляет батчи в `ITranslationProvider` (`YandexTranslateProvider`).
+10. Worker восстанавливает токены, валидирует output и собирает translated files.
+11. Worker пакует результат в zip и пишет `SubmodBuildArtifact`.
+12. Клиент получает статус и скачивает архив результата.
 
 ## API endpoints
 
-### Клиентские
-
+Существующие licensing/update endpoints:
 - `POST /api/client/v1/activate`
 - `POST /api/client/v1/refresh`
 - `GET /api/client/v1/license/status`
@@ -93,51 +108,203 @@ scripts/
 - `GET /api/client/v1/updates/download/{releaseId}`
 - `GET /api/client/v1/system/info`
 
-### Системные
+Новые translation endpoints:
+- `POST /api/client/v1/mods/analyze`
+- `POST /api/client/v1/translations/jobs`
+- `GET /api/client/v1/translations/jobs/{jobId}`
+- `GET /api/client/v1/translations/jobs/{jobId}/files`
+- `GET /api/client/v1/translations/jobs/{jobId}/download`
+- `POST /api/client/v1/translations/jobs/{jobId}/cancel`
+- `GET /api/client/v1/languages`
+- `GET /api/client/v1/glossaries/active`
+- `GET /api/client/v1/quotas/current`
 
+Системные endpoints:
 - `GET /health/live`
 - `GET /health/ready`
 
-## Сценарий активации
+Dev-only:
+- Swagger UI при `ASPNETCORE_ENVIRONMENT=Development`
 
-1. Пользователь устанавливает клиент.
-2. Клиент генерирует `installation id`, собирает отпечаток устройства и шифрует локальные токены через `DPAPI`.
-3. Пользователь вводит лицензионный ключ.
-4. Клиент отправляет запрос активации на сервер по `HTTPS`.
-5. Сервер ищет лицензию по хешу ключа, проверяет срок действия, отзыв и лимит устройств.
-6. Сервер создаёт или обновляет `Device`.
-7. Сервер выдаёт `access token` и `refresh token`.
-8. Сервер пишет `LicenseActivation`, аудит и security events.
-9. Клиент хранит токены локально в защищённом виде.
+## DTO примеры
 
-## Сценарий обновления
+Анализ мода:
 
-1. Администратор публикует новый релиз через админ-панель.
-2. Сервер сохраняет пакет, вычисляет `SHA-256` и подписывает манифест релиза приватным ключом.
-3. Клиент запрашивает `updates/check`.
-4. Клиент скачивает пакет только с доверенного API.
-5. Клиент проверяет:
-   - hash файла;
-   - подпись манифеста;
-   - соответствие канала обновлений.
-6. Клиент устанавливает только `MSIX/MSIXBundle`.
-7. При ошибке проверки обновление не ставится.
+```json
+{
+  "modName": "Amazing Space Mod",
+  "modVersion": "1.2.0",
+  "originalModReference": "workshop/123456789",
+  "sourceLanguage": "en",
+  "files": [
+    {
+      "relativePath": "localisation/english/amazing_l_english.yml",
+      "content": "l_english:\ngreeting:0 \"Hello $NAME$\"",
+      "sourceLanguage": "en",
+      "sha256": "F0A1...",
+      "sizeBytes": 42
+    }
+  ]
+}
+```
 
-## Что уже реализовано по безопасности
+Создание job:
 
-- лицензионные ключи на сервере хранятся только в виде хеша;
-- access/refresh токены не хранятся в открытом виде на сервере;
-- локально токены шифруются через `DPAPI`;
-- есть `certificate pinning` на клиенте;
-- есть rate limit через Redis с fallback на память;
-- отзыв лицензии отзывает и связанные устройства/сессии;
-- refresh token ротационный;
-- журнал безопасности вынесен в отдельную сущность `SecurityIncident`;
-- обновления подписываются отдельно от TLS;
-- UI админки полностью на русском языке;
-- продакшн-конфиги вынесены в `appsettings.Production.json`.
+```json
+{
+  "analysisSnapshotId": null,
+  "modName": "Amazing Space Mod",
+  "originalModReference": "workshop/123456789",
+  "sourceLanguage": "en",
+  "targetLanguage": "ru",
+  "requestedSubmodName": "[RU] Amazing Space Mod (Auto Translation)",
+  "providerCode": "yandex",
+  "files": [
+    {
+      "relativePath": "localisation/english/amazing_l_english.yml",
+      "content": "l_english:\ngreeting:0 \"Hello $NAME$\"",
+      "sourceLanguage": "en",
+      "sha256": "F0A1...",
+      "sizeBytes": 42
+    }
+  ]
+}
+```
 
-## Быстрый старт локально
+Заголовок идемпотентности:
+
+```http
+Idempotency-Key: mod-job-0001
+```
+
+Ответ на создание job:
+
+```json
+{
+  "jobId": "0baf6a12-5d12-45e1-9b8c-4f2d8c2a7715",
+  "status": "Queued",
+  "requestedUtc": "2026-03-13T09:45:12.1200000+00:00",
+  "quota": {
+    "maxFilesPerJob": 64,
+    "maxSegmentsPerJob": 4000,
+    "maxCharactersPerJob": 120000,
+    "maxCharactersPerDay": 480000,
+    "remainingCharactersToday": 479958,
+    "maxConcurrentJobs": 2,
+    "activeJobs": 1,
+    "maxJobsPerHour": 10,
+    "remainingJobsThisHour": 9,
+    "maxAnalysisPerHour": 20,
+    "remainingAnalysisThisHour": 19
+  },
+  "message": "Задание поставлено в очередь."
+}
+```
+
+Статус job:
+
+```json
+{
+  "jobId": "0baf6a12-5d12-45e1-9b8c-4f2d8c2a7715",
+  "status": "Completed",
+  "providerCode": "yandex",
+  "modName": "Amazing Space Mod",
+  "sourceLanguage": "en",
+  "targetLanguage": "ru",
+  "requestedSubmodName": "[RU] Amazing Space Mod (Auto Translation)",
+  "totalFiles": 1,
+  "totalSegments": 1,
+  "totalCharacters": 12,
+  "processedSegments": 1,
+  "processedCharacters": 13,
+  "retryCount": 0,
+  "downloadAvailable": true,
+  "failureCode": "",
+  "failureReason": "",
+  "requestedUtc": "2026-03-13T09:45:12.1200000+00:00",
+  "startedUtc": "2026-03-13T09:45:15.0000000+00:00",
+  "completedUtc": "2026-03-13T09:45:17.0000000+00:00",
+  "cancelRequestedUtc": null,
+  "manifestPreview": {
+    "submodName": "[RU] Amazing Space Mod (Auto Translation)",
+    "descriptorName": "descriptor.mod",
+    "targetLanguage": "ru",
+    "outputFiles": [
+      "localisation/english/amazing_l_english.yml"
+    ],
+    "notes": [
+      "Оригинальный мод не изменяется.",
+      "В архив включаются только переведённые localisation-файлы.",
+      "Клиент может использовать этот manifest для безопасной сборки отдельного submod."
+    ]
+  }
+}
+```
+
+## Качество API и безопасность
+
+Уже реализовано:
+- `ProblemDetails` для ошибок API
+- `X-Correlation-ID`
+- `FluentValidation` для analyze/create job DTO
+- route versioning через `/api/client/v1`
+- `Idempotency-Key` на создание job
+- rate limit для analyze/create
+- session-based authorization через opaque bearer tokens
+- ограничение по payload size / file count / segment count / character count
+- path traversal protection для `localisation/*`
+- server-only хранение Yandex credentials
+- protected token pipeline для `$NAME$`, `[Root.GetName]`, `§R`, `£energy£`, `%s`, `\n`
+- quota enforcement на лицензию и устройство
+- structured audit и security incidents
+- retry / throttle / circuit breaker для provider layer
+
+Что важно:
+- клиент никогда не обращается к Yandex Translate напрямую;
+- секрет Yandex берётся только из server config/env var;
+- сервер не пишет поверх оригинального мода;
+- результат отдаётся отдельным архивом, пригодным для следующего клиентского этапа.
+
+## Очередь и worker
+
+Очередь:
+- Redis list: `queue:translations`
+- fallback: worker умеет сканировать DB jobs со статусом `Queued`
+
+Статусы jobs:
+- `Pending`
+- `Queued`
+- `Processing`
+- `Completed`
+- `Failed`
+- `CancelRequested`
+- `Cancelled`
+- `Expired`
+
+Worker задачи:
+- обработка translation jobs
+- refresh/session cleanup
+- telemetry cleanup
+- stale snapshot cleanup
+- timeout stale processing jobs
+- cleanup temp/result storage по retention policy
+
+## Конфигурация
+
+Основные dev-конфиги:
+- [`src/Platform.Api/appsettings.json`](/C:/DISCORD/src/Platform.Api/appsettings.json)
+- [`src/Platform.Admin/appsettings.json`](/C:/DISCORD/src/Platform.Admin/appsettings.json)
+- [`src/Platform.Worker/appsettings.json`](/C:/DISCORD/src/Platform.Worker/appsettings.json)
+
+Пример server-конфига:
+- [`deploy/examples/server.translation.sample.json`](/C:/DISCORD/deploy/examples/server.translation.sample.json)
+
+Секрет Yandex:
+- не хранить в `appsettings` для production;
+- использовать переменную окружения `YANDEX_TRANSLATE_API_KEY`;
+- указать `TranslationProviders:Yandex:FolderId`.
+
+## Запуск сервера
 
 ### 1. Поднять инфраструктуру
 
@@ -145,17 +312,11 @@ scripts/
 docker compose -f deploy/docker-compose.platform.yml up -d
 ```
 
-Это поднимет:
-- PostgreSQL на `localhost:5432`
-- Redis на `localhost:6379`
-
 ### 2. Сгенерировать ключи подписи обновлений
 
 ```powershell
 pwsh ./scripts/generate-update-signing-key.ps1
 ```
-
-Ключи будут созданы в `deploy/keys/`.
 
 ### 3. Применить миграции
 
@@ -183,123 +344,160 @@ dotnet run --project src/Platform.Admin/Platform.Admin.csproj
 dotnet run --project src/Platform.Worker/Platform.Worker.csproj
 ```
 
-### 7. Запустить клиент
+### 7. Прогнать тесты
 
 ```powershell
-dotnet run --project src/Platform.Client.Wpf/Platform.Client.Wpf.csproj
+dotnet test SecureLicensePlatform.sln
 ```
+
+### 8. Выкатить сервер на Ubuntu
+
+Для работающего сервера есть скрипт:
+- [`scripts/deploy_server_translation.py`](/C:/DISCORD/scripts/deploy_server_translation.py)
+
+Пример запуска:
+
+```powershell
+python .\scripts\deploy_server_translation.py `
+  --host 194.116.217.48 `
+  --username root `
+  --password "<server-password>"
+```
+
+Скрипт:
+- загружает только серверные проекты и конфиги;
+- обновляет env-файлы `api/admin/worker`;
+- применяет миграции;
+- публикует `API`, `Admin`, `Worker`;
+- перезапускает `systemd`-сервисы;
+- проверяет `/health/live`, `/Login` и `/api/client/v1/system/info`.
 
 ## Seed-данные
 
-По умолчанию сидируются:
-
-### Администратор
-
+Админ:
 - логин: `admin`
 - пароль: `ChangeThisPassword!`
 
-### Демонстрационные лицензии
-
+Demo licenses:
 - `SLP-DEMO-0001-0001-0001`
 - `SLP-INTERNAL-0001-0001`
 
-Настройки seed лежат в:
-- [`src/Platform.Api/appsettings.json`](C:/DISCORD/src/Platform.Api/appsettings.json)
-- [`src/Platform.Admin/appsettings.json`](C:/DISCORD/src/Platform.Admin/appsettings.json)
-- [`src/Platform.Worker/appsettings.json`](C:/DISCORD/src/Platform.Worker/appsettings.json)
+Seed также создаёт:
+- provider row `yandex`
+- базовый glossary `Stellaris Core RU`
+- translation quotas для существующих лицензий
 
-## Сборка решения
+## Что уже видно в админке
 
-```powershell
-dotnet build SecureLicensePlatform.sln
-```
+Новая страница:
+- [`Translations.cshtml`](/C:/DISCORD/src/Platform.Admin/Pages/Translations.cshtml)
 
-## Сборка Windows-клиента
+Что показывает:
+- queue status
+- translation jobs
+- usage по лицензиям
+- quotas
+- glossary entries
+- provider enable/disable
 
-### Debug
+## Клиентский этап 2
 
-```powershell
-dotnet build src/Platform.Client.Wpf/Platform.Client.Wpf.csproj
-```
+Изменённые клиентские проекты:
+- `src/Platform.Client.Core`
+- `src/Platform.Client.Wpf`
+- `tests/Platform.Client.Tests`
 
-### Release publish
+Основные новые клиентские модули:
+- [`StellarisPathResolver.cs`](/C:/DISCORD/src/Platform.Client.Core/Services/StellarisPathResolver.cs)
+- [`StellarisDescriptorParser.cs`](/C:/DISCORD/src/Platform.Client.Core/Services/StellarisDescriptorParser.cs)
+- [`StellarisLocalizationParser.cs`](/C:/DISCORD/src/Platform.Client.Core/Services/StellarisLocalizationParser.cs)
+- [`StellarisModDiscoveryService.cs`](/C:/DISCORD/src/Platform.Client.Core/Services/StellarisModDiscoveryService.cs)
+- [`ClientTranslationApiService.cs`](/C:/DISCORD/src/Platform.Client.Core/Services/ClientTranslationApiService.cs)
+- [`SubmodBuildService.cs`](/C:/DISCORD/src/Platform.Client.Core/Services/SubmodBuildService.cs)
+- [`ModTranslationViewModel.cs`](/C:/DISCORD/src/Platform.Client.Wpf/ViewModels/ModTranslationViewModel.cs)
+- [`MainWindow.xaml`](/C:/DISCORD/src/Platform.Client.Wpf/MainWindow.xaml)
 
-```powershell
-dotnet publish src/Platform.Client.Wpf/Platform.Client.Wpf.csproj `
-  -c Release `
-  -r win-x64 `
-  --self-contained false
-```
+Новые экраны и сценарии клиента:
+- `Перевод модов` с каталогом local/workshop модов Stellaris;
+- анализ выбранного мода и списка localisation-файлов;
+- выбор исходного и целевого языков;
+- создание translation job, polling статуса и отмена;
+- скачивание результата с сервера;
+- preview и сборка отдельного сабмода без изменения оригинала;
+- открытие папки мода и папки результата;
+- расширенные настройки путей Stellaris/Steam/submod output.
 
-Результат будет в:
-- `src/Platform.Client.Wpf/bin/Release/net8.0-windows/win-x64/publish`
+### Конфиг клиента
 
-## Подготовка MSIX
+Пример:
+- [`deploy/examples/clientsettings.sample.json`](/C:/DISCORD/deploy/examples/clientsettings.sample.json)
 
-Текущий код клиента уже умеет:
-- проверять подпись релиза;
-- скачивать только доверенный пакет;
-- устанавливать `MSIX/MSIXBundle`.
+Новые поля:
+- `StellarisUserDataPath`
+- `SteamRootPath`
+- `SubmodOutputRoot`
 
-Для полноценного distributable-пакета нужен один из двух путей:
+Клиент по умолчанию работает с сервером:
+- `https://194.116.217.48`
 
-1. `Windows Application Packaging Project (.wapproj)` в Visual Studio.
-2. `MSIX Packaging Tool` поверх publish-папки.
+### Demo flow клиента
 
-Рекомендуемый production-процесс:
+1. Активировать клиент лицензией через уже существующую сессию.
+2. Открыть раздел `Перевод модов`.
+3. Нажать `Обновить список` и выбрать мод из локального каталога или Steam Workshop.
+4. Проверить найденные localisation-файлы и квоту.
+5. Нажать `Анализировать мод`.
+6. Задать язык, имя сабмода и при необходимости оставить `dry-run`.
+7. Нажать `Запустить перевод`.
+8. Дождаться статуса `Completed` и скачать архив результата.
+9. Нажать `Собрать сабмод` для записи отдельного перевода в каталог модов.
+10. Открыть папку сабмода и подключить его в launcher Stellaris.
 
-1. Собрать `Release` publish.
-2. Упаковать в `MSIX`.
-3. Подписать корпоративным сертификатом.
-4. Передать пакет в админ-панель через страницу публикации релиза.
-5. Раздать публичный ключ проверки обновлений клиентам.
+### Безопасность клиента
 
-## Публикация обновления
+- клиент не хранит ключи Yandex и не обращается к провайдеру напрямую;
+- все операции перевода идут только через API сервера;
+- сабмод создаётся отдельно и не перезаписывает оригинальный мод по умолчанию;
+- есть `dry-run`, backup и безопасная запись файлов;
+- клиент использует существующую модель лицензий, сессий и обновлений.
 
-1. Собери новый `MSIX/MSIXBundle`.
-2. Подпиши пакет стандартной Windows-подписью.
-3. Открой админ-панель.
-4. Перейди на страницу `Обновления`.
-5. Укажи:
-   - версию;
-   - канал (`stable` / `beta` / `internal`);
-   - минимальную поддерживаемую версию;
-   - обязательность;
-   - описание;
-   - файл пакета.
-6. Сохрани публикацию.
+## Серверные тесты
 
-Сервер:
-- вычислит `SHA-256`;
-- подпишет манифест релиза;
-- запишет релиз и артефакт в БД;
-- начнёт отдавать обновление клиентам по каналу.
+Тестовый проект:
+- [`Platform.Server.Tests.csproj`](/C:/DISCORD/tests/Platform.Server.Tests/Platform.Server.Tests.csproj)
 
-## Пример клиентских настроек
+Что покрыто сейчас:
+- safe path handling
+- protected token preservation
+- localisation parsing
+- quota enforcement
+- ProblemDetails mapping
+- translation job lifecycle до готового архива
 
-См. файл:
-- [`deploy/examples/clientsettings.sample.json`](C:/DISCORD/deploy/examples/clientsettings.sample.json)
+## Клиентские тесты
 
-Реальный файл клиента создаётся автоматически в:
+Тестовый проект:
+- [`Platform.Client.Tests.csproj`](/C:/DISCORD/tests/Platform.Client.Tests/Platform.Client.Tests.csproj)
 
-`%LocalAppData%\SecureLicensePlatform\clientsettings.json`
+Что покрыто сейчас:
+- parsing `descriptor.mod`
+- parsing Stellaris localisation `.yml`
+- dry-run сборка сабмода
+- безопасная запись и backup при повторной сборке
 
-## Проверка сборки
+## Важное ограничение для production
 
-На текущий момент проверено:
+Серверная часть уже развёрнута и готова принимать analyze/job запросы, но для реального перевода на боевом сервере нужно задать рабочие Yandex credentials:
+- `YANDEX_TRANSLATE_API_KEY`
+- `TranslationProviders__Yandex__FolderId`
+- `TranslationProviders__Yandex__Enabled=true`
 
-```powershell
-dotnet build SecureLicensePlatform.sln
-```
+Пока эти параметры не заданы, создание translation job будет корректно отвечать ошибкой `provider_unavailable`.
 
-Сборка проходит успешно.
+## TODO следующего этапа
 
-## Что стоит сделать следующим шагом
-
-- вынести настройки в переменные окружения и Secret Manager;
-- добавить реальную метрику/трейсинг через OpenTelemetry exporter;
-- добавить полноценный `wapproj` для автоматической MSIX-сборки;
-- вынести release storage в S3/MinIO/NAS;
-- добавить фоновые push-уведомления клиентам;
-- добавить разграничение по tenant/партнёрам;
-- добавить автоматические тесты API и UI.
+- улучшить визуальную полировку WPF-клиента и отдельный экран диагностики переводчика;
+- добавить preview diff по строкам до записи сабмода;
+- добавить более глубокий разбор Stellaris launcher metadata;
+- выпустить полноценный установщик клиента вместо ручного запуска exe;
+- настроить боевой Yandex provider на production и прогнать полный e2e-перевод.

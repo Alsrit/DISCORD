@@ -1,16 +1,31 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.HttpOverrides;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Platform.Api.Authentication;
+using Platform.Api.Middleware;
+using Platform.Application.Validators;
 using Platform.Infrastructure.Extensions;
 using Platform.Infrastructure.Persistence;
 using Platform.Application.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddProblemDetails(options =>
+{
+    options.CustomizeProblemDetails = context =>
+    {
+        context.ProblemDetails.Extensions["correlationId"] = context.HttpContext.TraceIdentifier;
+    };
+});
 builder.Services.AddControllers();
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
 builder.Services.AddPlatformInfrastructure(builder.Configuration);
+builder.Services.AddValidatorsFromAssemblyContaining<AnalyzeModRequestValidator>();
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 builder.Services.AddAuthentication("ClientBearer")
     .AddScheme<AuthenticationSchemeOptions, OpaqueTokenAuthenticationHandler>("ClientBearer", _ => { });
 builder.Services.AddAuthorization();
@@ -23,11 +38,18 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 var app = builder.Build();
 
-if (!app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+else
 {
     app.UseHsts();
 }
 
+app.UseExceptionHandler();
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseAuthentication();

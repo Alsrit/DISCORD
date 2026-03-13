@@ -6,6 +6,7 @@ using Platform.Worker;
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddPlatformInfrastructure(builder.Configuration);
 builder.Services.AddHostedService<MaintenanceWorker>();
+builder.Services.AddHostedService<TranslationWorker>();
 
 var host = builder.Build();
 host.Run();

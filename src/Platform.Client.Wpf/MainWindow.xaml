@@ -117,7 +117,7 @@
 
                     <StackPanel DockPanel.Dock="Top" Margin="0,36,0,0">
                         <Button Style="{StaticResource NavButtonStyle}" Content="Главная" Command="{Binding NavigateCommand}" CommandParameter="Dashboard" />
-                        <Button Style="{StaticResource NavButtonStyle}" Content="Диагностика" Command="{Binding NavigateCommand}" CommandParameter="Diagnostics" />
+                        <Button Style="{StaticResource NavButtonStyle}" Content="Перевод модов" Command="{Binding NavigateCommand}" CommandParameter="ModTranslation" />
                         <Button Style="{StaticResource NavButtonStyle}" Content="Логи" Command="{Binding NavigateCommand}" CommandParameter="Logs" />
                         <Button Style="{StaticResource NavButtonStyle}" Content="Настройки" Command="{Binding NavigateCommand}" CommandParameter="Settings" />
                         <Button Style="{StaticResource NavButtonStyle}" Content="О программе" Command="{Binding NavigateCommand}" CommandParameter="About" />
@@ -140,7 +140,7 @@
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
                         <StackPanel Width="760">
                             <TextBlock Text="Управление клиентом" Foreground="{StaticResource AccentBrush}" FontSize="14" />
-                            <TextBlock Text="{Binding CurrentSection}" FontSize="34" FontWeight="Bold" Margin="0,8,0,4" />
+                            <TextBlock Text="{Binding CurrentSectionTitle}" FontSize="34" FontWeight="Bold" Margin="0,8,0,4" />
                             <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -200,10 +200,206 @@
                         </Border>
                     </StackPanel>
 
-                    <StackPanel Visibility="{Binding CurrentSection, Converter={StaticResource SectionVisibilityConverter}, ConverterParameter=Diagnostics}">
+                    <StackPanel Visibility="{Binding CurrentSection, Converter={StaticResource SectionVisibilityConverter}, ConverterParameter=ModTranslation}">
+                        <!-- translation-section -->
+                        <Grid Margin="0,24,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="360" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Style="{StaticResource SectionCardStyle}">
+                                <StackPanel>
+                                    <DockPanel LastChildFill="False">
+                                        <TextBlock Text="Каталог модов" FontSize="24" FontWeight="Bold" DockPanel.Dock="Left" />
+                                        <Button Content="Обновить список"
+                                                Command="{Binding ModTranslation.ScanModsCommand}"
+                                                Width="150"
+                                                Margin="12,0,0,10"
+                                                DockPanel.Dock="Right" />
+                                    </DockPanel>
+                                    <TextBlock Text="{Binding ModTranslation.CatalogStatus}"
+                                               Foreground="{StaticResource MutedBrush}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,10,0,14" />
+                                    <Button Content="Открыть папку выбранного мода"
+                                            Command="{Binding ModTranslation.OpenSelectedModFolderCommand}"
+                                            Margin="0,0,0,12" />
+                                    <ListBox ItemsSource="{Binding ModTranslation.AvailableMods}"
+                                             SelectedItem="{Binding ModTranslation.SelectedMod}"
+                                             Height="620">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Margin="0,0,0,10"
+                                                        Padding="14"
+                                                        CornerRadius="18"
+                                                        Background="#091321"
+                                                        BorderBrush="{StaticResource StrokeBrush}"
+                                                        BorderThickness="1">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="Bold" />
+                                                        <TextBlock Text="{Binding SourceLabel}" Foreground="{StaticResource AccentBrush}" Margin="0,4,0,0" />
+                                                        <TextBlock Text="{Binding SupportedVersion, StringFormat=Поддерживаемая версия: {0}}" Foreground="{StaticResource MutedBrush}" Margin="0,8,0,0" />
+                                                        <TextBlock Text="{Binding LocalizationFiles.Count, StringFormat=Локализационных файлов: {0}}" Foreground="{StaticResource MutedBrush}" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </StackPanel>
+                            </Border>
+
+                            <StackPanel Grid.Column="2">
+                                <Border Style="{StaticResource SectionCardStyle}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="1.2*" />
+                                            <ColumnDefinition Width="0.9*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Margin="0,0,24,0">
+                                            <TextBlock Text="Выбранный мод" FontSize="24" FontWeight="Bold" />
+                                            <TextBlock Text="{Binding ModTranslation.SelectedModSummary}"
+                                                       Margin="0,16,0,0"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Text="Квота" Foreground="{StaticResource AccentBrush}" Margin="0,22,0,4" />
+                                            <TextBlock Text="{Binding ModTranslation.QuotaSummary}" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
+                                            <TextBlock Text="Активные словари" Foreground="{StaticResource AccentBrush}" Margin="0,18,0,4" />
+                                            <TextBlock Text="{Binding ModTranslation.GlossarySummary}" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="Параметры перевода" FontSize="24" FontWeight="Bold" />
+
+                                            <TextBlock Text="Исходный язык" Margin="0,16,0,8" Foreground="{StaticResource MutedBrush}" />
+                                            <ComboBox ItemsSource="{Binding ModTranslation.AvailableLanguages}"
+                                                      DisplayMemberPath="DisplayName"
+                                                      SelectedValuePath="Code"
+                                                      SelectedValue="{Binding ModTranslation.SourceLanguage}" />
+
+                                            <TextBlock Text="Целевой язык" Margin="0,16,0,8" Foreground="{StaticResource MutedBrush}" />
+                                            <ComboBox ItemsSource="{Binding ModTranslation.AvailableLanguages}"
+                                                      DisplayMemberPath="DisplayName"
+                                                      SelectedValuePath="Code"
+                                                      SelectedValue="{Binding ModTranslation.TargetLanguage}" />
+
+                                            <TextBlock Text="Имя сабмода" Margin="0,16,0,8" Foreground="{StaticResource MutedBrush}" />
+                                            <TextBox Text="{Binding ModTranslation.RequestedSubmodName, UpdateSourceTrigger=PropertyChanged}" />
+
+                                            <CheckBox IsChecked="{Binding ModTranslation.DryRunBuild}"
+                                                      Content="Сначала dry-run без записи на диск"
+                                                      Margin="0,16,0,0" />
+                                            <CheckBox IsChecked="{Binding ModTranslation.CreateBackup}"
+                                                      Content="Создавать backup при повторной сборке"
+                                                      Margin="0,8,0,0" />
+
+                                            <WrapPanel Margin="0,18,0,0">
+                                                <Button Content="Анализировать мод"
+                                                        Command="{Binding ModTranslation.AnalyzeCommand}"
+                                                        Width="180" />
+                                                <Button Content="Запустить перевод"
+                                                        Command="{Binding ModTranslation.StartTranslationCommand}"
+                                                        Width="180"
+                                                        Margin="12,0,0,10" />
+                                            </WrapPanel>
+                                            <WrapPanel>
+                                                <Button Content="Обновить статус"
+                                                        Command="{Binding ModTranslation.RefreshJobCommand}"
+                                                        Width="180" />
+                                                <Button Content="Отменить задание"
+                                                        Command="{Binding ModTranslation.CancelJobCommand}"
+                                                        Width="180"
+                                                        Margin="12,0,0,10" />
+                                            </WrapPanel>
+                                            <WrapPanel>
+                                                <Button Content="Скачать результат"
+                                                        Command="{Binding ModTranslation.DownloadResultCommand}"
+                                                        Width="180" />
+                                                <Button Content="Собрать сабмод"
+                                                        Command="{Binding ModTranslation.BuildSubmodCommand}"
+                                                        Width="180"
+                                                        Margin="12,0,0,10" />
+                                            </WrapPanel>
+                                            <Button Content="Открыть папку сабмода"
+                                                    Command="{Binding ModTranslation.OpenOutputFolderCommand}"
+                                                    Width="220" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
+                                <Border Style="{StaticResource SectionCardStyle}">
+                                    <StackPanel>
+                                        <TextBlock Text="Найденные localisation-файлы" FontSize="24" FontWeight="Bold" />
+                                        <ListView ItemsSource="{Binding ModTranslation.SelectedLocalizationFiles}" Margin="0,18,0,0" Height="220">
+                                            <ListView.View>
+                                                <GridView>
+                                                    <GridViewColumn Header="Файл" DisplayMemberBinding="{Binding RelativePath}" Width="350" />
+                                                    <GridViewColumn Header="Header" DisplayMemberBinding="{Binding HeaderKey}" Width="110" />
+                                                    <GridViewColumn Header="Сегменты" DisplayMemberBinding="{Binding SegmentCount}" Width="90" />
+                                                    <GridViewColumn Header="Символы" DisplayMemberBinding="{Binding CharacterCount}" Width="90" />
+                                                </GridView>
+                                            </ListView.View>
+                                        </ListView>
+                                    </StackPanel>
+                                </Border>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="18" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Column="0" Style="{StaticResource SectionCardStyle}">
+                                        <StackPanel>
+                                            <TextBlock Text="Ход задания" FontSize="24" FontWeight="Bold" />
+                                            <TextBlock Text="{Binding ModTranslation.JobStatusLabel}" Margin="0,16,0,8" />
+                                            <ProgressBar Height="18" Minimum="0" Maximum="100" Value="{Binding ModTranslation.JobProgressPercent}" />
+                                            <TextBlock Text="{Binding ModTranslation.TranslationStatus}"
+                                                       Margin="0,14,0,0"
+                                                       Foreground="{StaticResource MutedBrush}"
+                                                       TextWrapping="Wrap" />
+
+                                            <TextBlock Text="Файлы результата" Foreground="{StaticResource AccentBrush}" Margin="0,20,0,8" />
+                                            <ListView ItemsSource="{Binding ModTranslation.ResultFiles}" Height="220">
+                                                <ListView.View>
+                                                    <GridView>
+                                                        <GridViewColumn Header="Файл" DisplayMemberBinding="{Binding RelativePath}" Width="300" />
+                                                        <GridViewColumn Header="Статус" DisplayMemberBinding="{Binding Status}" Width="100" />
+                                                        <GridViewColumn Header="Сегменты" DisplayMemberBinding="{Binding SegmentCount}" Width="90" />
+                                                    </GridView>
+                                                </ListView.View>
+                                            </ListView>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Grid.Column="2" Style="{StaticResource SectionCardStyle}">
+                                        <StackPanel>
+                                            <TextBlock Text="Сборка сабмода" FontSize="24" FontWeight="Bold" />
+                                            <TextBlock Text="{Binding ModTranslation.BuildPreviewText}"
+                                                       Margin="0,16,0,0"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding ModTranslation.BuildStatus}"
+                                                       Margin="0,18,0,0"
+                                                       Foreground="{StaticResource AccentBrush}"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding ModTranslation.OutputFolderPath}"
+                                                       Margin="0,12,0,0"
+                                                       Foreground="{StaticResource MutedBrush}"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding ModTranslation.BackupPath}"
+                                                       Margin="0,8,0,0"
+                                                       Foreground="{StaticResource MutedBrush}"
+                                                       TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                            </StackPanel>
+                        </Grid>
                         <Border Style="{StaticResource SectionCardStyle}">
                             <StackPanel>
-                                <TextBlock Text="Диагностика" FontSize="24" FontWeight="Bold" />
+                                <TextBlock Text="Технические сообщения" FontSize="24" FontWeight="Bold" />
                                 <TextBlock Text="{Binding DiagnosticsText}" Margin="0,16,0,0" TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
@@ -234,6 +430,14 @@
                                 <TextBlock Text="Настройки" FontSize="24" FontWeight="Bold" />
                                 <TextBlock Text="URL сервера" Margin="0,18,0,8" Foreground="{StaticResource MutedBrush}" />
                                 <TextBox Text="{Binding ServerBaseUrl, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Путь к пользовательским данным Stellaris" Margin="0,18,0,8" Foreground="{StaticResource MutedBrush}" />
+                                <TextBox Text="{Binding StellarisUserDataPath, UpdateSourceTrigger=PropertyChanged}" />
+
+                                <TextBlock Text="Корневой каталог Steam" Margin="0,18,0,8" Foreground="{StaticResource MutedBrush}" />
+                                <TextBox Text="{Binding SteamRootPath, UpdateSourceTrigger=PropertyChanged}" />
+
+                                <TextBlock Text="Каталог вывода сабмодов" Margin="0,18,0,8" Foreground="{StaticResource MutedBrush}" />
+                                <TextBox Text="{Binding SubmodOutputRoot, UpdateSourceTrigger=PropertyChanged}" />
 
                                 <CheckBox IsChecked="{Binding AutoCheckUpdates}" Content="Автоматически проверять обновления" Margin="0,16,0,0" />
                                 <CheckBox IsChecked="{Binding EnableAutostart}" Content="Запускать вместе с Windows" Margin="0,8,0,0" />

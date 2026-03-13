@@ -23,9 +23,16 @@ public partial class App : System.Windows.Application
                 services.AddSingleton<DeviceIdentityService>();
                 services.AddSingleton<PinnedHttpClientFactory>();
                 services.AddSingleton<ClientApiService>();
+                services.AddSingleton<ClientTranslationApiService>();
                 services.AddSingleton<UpdateVerificationService>();
                 services.AddSingleton<UpdateInstallerService>();
                 services.AddSingleton<AutostartService>();
+                services.AddSingleton<StellarisPathResolver>();
+                services.AddSingleton<StellarisDescriptorParser>();
+                services.AddSingleton<StellarisLocalizationParser>();
+                services.AddSingleton<StellarisModDiscoveryService>();
+                services.AddSingleton<SubmodBuildService>();
+                services.AddSingleton<ModTranslationViewModel>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
             })

@@ -17,7 +17,7 @@ public sealed class ClientPlatformController(IClientPlatformService clientPlatfo
     public async Task<IActionResult> Activate([FromBody] ActivateLicenseRequest request, CancellationToken cancellationToken)
     {
         var result = await clientPlatformService.ActivateAsync(request, HttpContext.ToRequestContext(), cancellationToken);
-        return ToActionResult(result);
+        return this.ToActionResult(result);
     }
 
     [HttpPost("refresh")]
@@ -25,7 +25,7 @@ public sealed class ClientPlatformController(IClientPlatformService clientPlatfo
     public async Task<IActionResult> Refresh([FromBody] RefreshSessionRequest request, CancellationToken cancellationToken)
     {
         var result = await clientPlatformService.RefreshAsync(request, HttpContext.ToRequestContext(), cancellationToken);
-        return ToActionResult(result);
+        return this.ToActionResult(result);
     }
 
     [HttpGet("license/status")]
@@ -33,7 +33,7 @@ public sealed class ClientPlatformController(IClientPlatformService clientPlatfo
     public async Task<IActionResult> GetStatus(CancellationToken cancellationToken)
     {
         var result = await clientPlatformService.GetStatusAsync(User.GetSessionId(), HttpContext.ToRequestContext(), cancellationToken);
-        return ToActionResult(result);
+        return this.ToActionResult(result);
     }
 
     [HttpPost("heartbeat")]
@@ -41,7 +41,7 @@ public sealed class ClientPlatformController(IClientPlatformService clientPlatfo
     public async Task<IActionResult> Heartbeat([FromBody] HeartbeatRequest request, CancellationToken cancellationToken)
     {
         var result = await clientPlatformService.HeartbeatAsync(User.GetSessionId(), request, HttpContext.ToRequestContext(), cancellationToken);
-        return ToActionResult(result);
+        return this.ToActionResult(result);
     }
 
     [HttpPost("telemetry")]
@@ -49,7 +49,7 @@ public sealed class ClientPlatformController(IClientPlatformService clientPlatfo
     public async Task<IActionResult> Telemetry([FromBody] TelemetryBatchRequest request, CancellationToken cancellationToken)
     {
         var result = await clientPlatformService.RecordTelemetryAsync(User.GetSessionId(), request, HttpContext.ToRequestContext(), cancellationToken);
-        return ToActionResult(result);
+        return this.ToActionResult(result);
     }
 
     [HttpGet("updates/check")]
@@ -65,7 +65,7 @@ public sealed class ClientPlatformController(IClientPlatformService clientPlatfo
             HttpContext.ToRequestContext(),
             cancellationToken);
 
-        return ToActionResult(result);
+        return this.ToActionResult(result);
     }
 
     [HttpGet("updates/download/{releaseId:guid}")]
@@ -75,7 +75,7 @@ public sealed class ClientPlatformController(IClientPlatformService clientPlatfo
         var result = await clientPlatformService.OpenReleaseArtifactAsync(User.GetSessionId(), releaseId, HttpContext.ToRequestContext(), cancellationToken);
         if (!result.Succeeded)
         {
-            return Problem(result.Message, statusCode: StatusCodes.Status400BadRequest, title: result.ErrorCode);
+            return this.ToProblemResult(result.Message, result.ErrorCode);
         }
 
         var artifact = result.Data;
@@ -89,14 +89,4 @@ public sealed class ClientPlatformController(IClientPlatformService clientPlatfo
         var info = await clientPlatformService.GetServerInfoAsync(cancellationToken);
         return Ok(info);
     }
-
-    private IActionResult ToActionResult(OperationResult result) =>
-        result.Succeeded
-            ? Ok(new { success = true, message = result.Message })
-            : Problem(result.Message, statusCode: StatusCodes.Status400BadRequest, title: result.ErrorCode);
-
-    private IActionResult ToActionResult<T>(OperationResult<T> result) =>
-        result.Succeeded && result.Data is not null
-            ? Ok(result.Data)
-            : Problem(result.Message, statusCode: StatusCodes.Status400BadRequest, title: result.ErrorCode);
 }

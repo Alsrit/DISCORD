@@ -1,10 +1,13 @@
 {
-  "ServerBaseUrl": "https://194.116.217.48:8443",
+  "ServerBaseUrl": "https://194.116.217.48",
   "PreferredChannel": "Stable",
   "AutoCheckUpdates": true,
   "EnableAutostart": false,
   "RequireCertificatePinning": false,
   "PinnedSpkiSha256": [],
   "UpdatePublicKeyPath": "",
-  "InstallationId": "auto-generated-on-first-run"
+  "InstallationId": "auto-generated-on-first-run",
+  "StellarisUserDataPath": "C:\\Users\\<user>\\Documents\\Paradox Interactive\\Stellaris",
+  "SteamRootPath": "C:\\Program Files (x86)\\Steam",
+  "SubmodOutputRoot": "C:\\Users\\<user>\\Documents\\Paradox Interactive\\Stellaris\\mod"
 }

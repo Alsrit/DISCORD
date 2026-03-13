@@ -10,9 +10,11 @@ using Platform.Application.Services;
 using Platform.Domain.Administration;
 using Platform.Domain.Common;
 using Platform.Domain.Licensing;
+using Platform.Domain.Translations;
 using Platform.Domain.Updates;
 using Platform.Infrastructure.Configuration;
 using Platform.Infrastructure.Persistence;
+using Platform.Infrastructure.Services.Translations;
 
 namespace Platform.Infrastructure.Services;
 
@@ -21,6 +23,7 @@ public sealed class AdminPlatformService(
     ILicenseKeyProtector licenseKeyProtector,
     IUpdateSignatureService updateSignatureService,
     IAuditTrailService auditTrailService,
+    ITranslationQueueService translationQueueService,
     IClock clock,
     IOptions<StorageOptions> storageOptions,
     ILogger<AdminPlatformService> logger) : IAdminPlatformService
@@ -131,6 +134,151 @@ public sealed class AdminPlatformService(
                 x.ResolvedUtc != null))
             .ToListAsync(cancellationToken);
 
+    public async Task<PagedResultDto<TranslationJobAdminListItemDto>> GetTranslationJobsAsync(
+        TranslationJobListQuery query,
+        CancellationToken cancellationToken)
+    {
+        var page = Math.Max(1, query.Page);
+        var pageSize = Math.Clamp(query.PageSize, 1, 100);
+        var jobsQuery = dbContext.TranslationJobs
+            .Include(x => x.License)
+            .Include(x => x.Device)
+            .AsQueryable();
+
+        if (query.State.HasValue)
+        {
+            jobsQuery = jobsQuery.Where(x => x.State == query.State.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var search = query.Search.Trim();
+            jobsQuery = jobsQuery.Where(x =>
+                x.ModName.Contains(search) ||
+                x.License.LicenseKeyMasked.Contains(search) ||
+                x.Device.DeviceName.Contains(search));
+        }
+
+        var totalCount = await jobsQuery.CountAsync(cancellationToken);
+        var items = await jobsQuery
+            .OrderByDescending(x => x.RequestedUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => new TranslationJobAdminListItemDto(
+                x.Id,
+                x.State.ToString(),
+                x.ProviderCode,
+                x.ModName,
+                x.SourceLanguage,
+                x.TargetLanguage,
+                x.License.LicenseKeyMasked,
+                x.Device.DeviceName,
+                x.TotalFiles,
+                x.TotalSegments,
+                x.TotalCharacters,
+                x.RetryCount,
+                x.FailureReason,
+                x.RequestedUtc,
+                x.CompletedUtc))
+            .ToListAsync(cancellationToken);
+
+        return new PagedResultDto<TranslationJobAdminListItemDto>(items, page, pageSize, totalCount);
+    }
+
+    public async Task<IReadOnlyCollection<TranslationUsageAdminDto>> GetTranslationUsageAsync(CancellationToken cancellationToken) =>
+        await dbContext.TranslationUsages
+            .Include(x => x.License)
+            .OrderByDescending(x => x.UsageDate)
+            .ThenByDescending(x => x.UpdatedUtc)
+            .Take(200)
+            .Select(x => new TranslationUsageAdminDto(
+                x.LicenseId,
+                x.License.LicenseKeyMasked,
+                x.License.CustomerName,
+                x.UsageDate,
+                x.ReservedCharacters,
+                x.ConsumedCharacters,
+                x.JobsCreated,
+                x.JobsCompleted,
+                x.JobsFailed,
+                x.JobsCancelled,
+                x.AnalysisRequests))
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<TranslationQuotaAdminDto>> GetTranslationQuotasAsync(CancellationToken cancellationToken) =>
+        await dbContext.TranslationQuotas
+            .Include(x => x.License)
+            .OrderBy(x => x.License.CustomerName)
+            .Select(x => new TranslationQuotaAdminDto(
+                x.LicenseId,
+                x.License.LicenseKeyMasked,
+                x.MaxFilesPerJob,
+                x.MaxSegmentsPerJob,
+                x.MaxCharactersPerJob,
+                x.MaxCharactersPerDay,
+                x.MaxConcurrentJobs,
+                x.MaxJobsPerHour,
+                x.MaxAnalysisPerHour,
+                x.IsEnabled,
+                x.Notes))
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<TranslationGlossaryAdminDto>> GetTranslationGlossariesAsync(CancellationToken cancellationToken) =>
+        await dbContext.TranslationGlossaries
+            .OrderBy(x => x.Scope)
+            .ThenBy(x => x.Priority)
+            .ThenBy(x => x.Name)
+            .Select(x => new TranslationGlossaryAdminDto(
+                x.Id,
+                x.LicenseId,
+                x.Name,
+                x.Scope,
+                x.SourceLanguage,
+                x.TargetLanguage,
+                x.Priority,
+                x.IsActive,
+                TranslationJson.Deserialize(x.TermsJson, Array.Empty<TranslationGlossaryTermDto>()).Length,
+                TranslationJson.Deserialize(x.FrozenTermsJson, Array.Empty<string>()).Length,
+                TranslationJson.Deserialize(x.SkipTermsJson, Array.Empty<string>()).Length,
+                x.Description))
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<TranslationProviderAdminDto>> GetTranslationProvidersAsync(CancellationToken cancellationToken) =>
+        await dbContext.TranslationProviderSettings
+            .OrderBy(x => x.ProviderCode)
+            .Select(x => new TranslationProviderAdminDto(
+                x.Id,
+                x.ProviderCode,
+                x.DisplayName,
+                x.IsEnabled,
+                x.Endpoint,
+                x.LanguagesEndpoint,
+                x.FolderId,
+                x.SecretReference,
+                x.LastKnownStatus,
+                x.LastError,
+                x.LastHealthCheckUtc,
+                x.TimeoutSeconds,
+                x.MaxBatchCharacters))
+            .ToListAsync(cancellationToken);
+
+    public async Task<TranslationQueueStatusDto> GetTranslationQueueStatusAsync(CancellationToken cancellationToken)
+    {
+        var queued = await dbContext.TranslationJobs.CountAsync(x => x.State == TranslationJobState.Queued, cancellationToken);
+        var processing = await dbContext.TranslationJobs.CountAsync(x => x.State == TranslationJobState.Processing, cancellationToken);
+        var failed = await dbContext.TranslationJobs.CountAsync(x => x.State == TranslationJobState.Failed, cancellationToken);
+        var cancelRequested = await dbContext.TranslationJobs.CountAsync(x => x.State == TranslationJobState.CancelRequested, cancellationToken);
+        var queueLength = await translationQueueService.GetQueuedCountAsync(cancellationToken);
+
+        return new TranslationQueueStatusDto(
+            queueLength >= 0 ? $"translation-jobs ({queueLength})" : "translation-jobs",
+            queued,
+            processing,
+            failed,
+            cancelRequested,
+            clock.UtcNow);
+    }
+
     public async Task<OperationResult<string>> CreateLicenseAsync(
         CreateLicenseRequest request,
         RequestContext context,
@@ -154,6 +302,20 @@ public sealed class AdminPlatformService(
         };
 
         dbContext.Licenses.Add(license);
+        dbContext.TranslationQuotas.Add(new TranslationQuota
+        {
+            License = license,
+            MaxFilesPerJob = 64,
+            MaxSegmentsPerJob = 4000,
+            MaxCharactersPerJob = 120000,
+            MaxCharactersPerDay = 480000,
+            MaxConcurrentJobs = 2,
+            MaxJobsPerHour = 10,
+            MaxAnalysisPerHour = 20,
+            IsEnabled = true,
+            Notes = "Базовая квота, созданная вместе с лицензией."
+        });
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         await auditTrailService.WriteAsync(
@@ -286,7 +448,7 @@ public sealed class AdminPlatformService(
         await dbContext.SaveChangesAsync(cancellationToken);
 
         logger.LogWarning(
-            "Удалена неиспользованная лицензия {MaskedKey} для {CustomerEmail}. Инициатор: {Actor}",
+            "Deleted unused license {MaskedKey} for {CustomerEmail}. Actor: {Actor}",
             maskedKey,
             customerEmail,
             context.AdminUserName ?? context.IpAddress);
@@ -413,8 +575,116 @@ public sealed class AdminPlatformService(
         dbContext.ApplicationReleases.Add(release);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation("Опубликован релиз {Version} для канала {Channel}", request.Version, channelCode);
+        logger.LogInformation("Published release {Version} for channel {Channel}", request.Version, channelCode);
         return OperationResult.Success("Релиз опубликован.");
+    }
+
+    public async Task<OperationResult> UpsertTranslationQuotaAsync(
+        UpsertTranslationQuotaRequest request,
+        RequestContext context,
+        CancellationToken cancellationToken)
+    {
+        var quota = await dbContext.TranslationQuotas.FirstOrDefaultAsync(x => x.LicenseId == request.LicenseId, cancellationToken);
+        if (quota is null)
+        {
+            quota = new TranslationQuota
+            {
+                LicenseId = request.LicenseId
+            };
+
+            dbContext.TranslationQuotas.Add(quota);
+        }
+
+        quota.MaxFilesPerJob = request.MaxFilesPerJob;
+        quota.MaxSegmentsPerJob = request.MaxSegmentsPerJob;
+        quota.MaxCharactersPerJob = request.MaxCharactersPerJob;
+        quota.MaxCharactersPerDay = request.MaxCharactersPerDay;
+        quota.MaxConcurrentJobs = request.MaxConcurrentJobs;
+        quota.MaxJobsPerHour = request.MaxJobsPerHour;
+        quota.MaxAnalysisPerHour = request.MaxAnalysisPerHour;
+        quota.IsEnabled = request.IsEnabled;
+        quota.Notes = request.Notes?.Trim() ?? string.Empty;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        await auditTrailService.WriteAsync(
+            request.LicenseId,
+            null,
+            null,
+            "admin",
+            "translation_quota_upserted",
+            "Квота перевода обновлена.",
+            AuditSeverity.Information,
+            context,
+            request,
+            cancellationToken);
+
+        return OperationResult.Success("Квота перевода сохранена.");
+    }
+
+    public async Task<OperationResult> UpsertTranslationGlossaryAsync(
+        UpsertTranslationGlossaryRequest request,
+        RequestContext context,
+        CancellationToken cancellationToken)
+    {
+        TranslationGlossary? glossary = null;
+        if (request.Id.HasValue)
+        {
+            glossary = await dbContext.TranslationGlossaries.FirstOrDefaultAsync(x => x.Id == request.Id.Value, cancellationToken);
+        }
+
+        glossary ??= new TranslationGlossary();
+        if (!await dbContext.TranslationGlossaries.AnyAsync(x => x.Id == glossary.Id, cancellationToken))
+        {
+            dbContext.TranslationGlossaries.Add(glossary);
+        }
+
+        glossary.LicenseId = request.LicenseId;
+        glossary.Name = request.Name.Trim();
+        glossary.Scope = request.Scope;
+        glossary.SourceLanguage = request.SourceLanguage.Trim();
+        glossary.TargetLanguage = request.TargetLanguage.Trim();
+        glossary.Priority = request.Priority;
+        glossary.IsActive = request.IsActive;
+        glossary.Description = request.Description?.Trim() ?? string.Empty;
+        glossary.TermsJson = TranslationJson.Serialize(request.Terms);
+        glossary.FrozenTermsJson = TranslationJson.Serialize(request.FrozenTerms);
+        glossary.SkipTermsJson = TranslationJson.Serialize(request.SkipTerms);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        if (request.LicenseId.HasValue)
+        {
+            await auditTrailService.WriteAsync(
+                request.LicenseId.Value,
+                null,
+                null,
+                "admin",
+                "translation_glossary_upserted",
+                "Glossary перевода обновлён.",
+                AuditSeverity.Information,
+                context,
+                new { request.Name, request.Scope, request.SourceLanguage, request.TargetLanguage },
+                cancellationToken);
+        }
+
+        return OperationResult.Success("Glossary перевода сохранён.");
+    }
+
+    public async Task<OperationResult> SetTranslationProviderStateAsync(
+        SetTranslationProviderStateRequest request,
+        RequestContext context,
+        CancellationToken cancellationToken)
+    {
+        var provider = await dbContext.TranslationProviderSettings.FirstOrDefaultAsync(x => x.Id == request.ProviderId, cancellationToken);
+        if (provider is null)
+        {
+            return OperationResult.Failure("Провайдер перевода не найден.", "translation_provider_not_found");
+        }
+
+        provider.IsEnabled = request.IsEnabled;
+        provider.LastHealthCheckUtc = clock.UtcNow;
+        provider.LastKnownStatus = request.IsEnabled ? "enabled" : "disabled";
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return OperationResult.Success("Состояние провайдера перевода обновлено.");
     }
 
     public async Task<OperationResult<AdminAuthenticationResult>> ValidateAdminCredentialsAsync(

@@ -1,0 +1,296 @@
+@page
+@model Platform.Admin.Pages.TranslationsModel
+@{
+    ViewData["Title"] = "Переводы";
+}
+
+<header class="page-header">
+    <div>
+        <p class="eyebrow">Stellaris Translation Jobs</p>
+        <h2 class="page-title">Переводы модов</h2>
+        <p class="page-subtitle">Очередь заданий, квоты, glossary и состояние server-side translation pipeline.</p>
+    </div>
+</header>
+
+<section class="row g-4 mb-4">
+    <div class="col-lg-4">
+        <article class="panel">
+            <h3>Очередь</h3>
+            <dl class="kv-list mt-3">
+                <div><dt>Имя</dt><dd>@Model.QueueStatus.QueueName</dd></div>
+                <div><dt>Queued</dt><dd>@Model.QueueStatus.QueuedJobs</dd></div>
+                <div><dt>Processing</dt><dd>@Model.QueueStatus.ProcessingJobs</dd></div>
+                <div><dt>Failed</dt><dd>@Model.QueueStatus.FailedJobs</dd></div>
+                <div><dt>Cancel Requested</dt><dd>@Model.QueueStatus.CancelRequestedJobs</dd></div>
+                <div><dt>Снимок</dt><dd>@Model.QueueStatus.GeneratedUtc.ToLocalTime().ToString("g")</dd></div>
+            </dl>
+        </article>
+        <article class="panel mt-4">
+            <h3>Новая квота</h3>
+            <form method="post" asp-page-handler="SaveQuota" class="mt-3">
+                <div class="mb-3">
+                    <label asp-for="QuotaEditor.LicenseId" class="form-label">Лицензия</label>
+                    <select asp-for="QuotaEditor.LicenseId" asp-items="Model.LicenseOptions" class="form-select"></select>
+                </div>
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label asp-for="QuotaEditor.MaxFilesPerJob" class="form-label">Файлов / job</label>
+                        <input asp-for="QuotaEditor.MaxFilesPerJob" class="form-control" />
+                    </div>
+                    <div class="col-6">
+                        <label asp-for="QuotaEditor.MaxSegmentsPerJob" class="form-label">Сегментов / job</label>
+                        <input asp-for="QuotaEditor.MaxSegmentsPerJob" class="form-control" />
+                    </div>
+                    <div class="col-6">
+                        <label asp-for="QuotaEditor.MaxCharactersPerJob" class="form-label">Символов / job</label>
+                        <input asp-for="QuotaEditor.MaxCharactersPerJob" class="form-control" />
+                    </div>
+                    <div class="col-6">
+                        <label asp-for="QuotaEditor.MaxCharactersPerDay" class="form-label">Символов / день</label>
+                        <input asp-for="QuotaEditor.MaxCharactersPerDay" class="form-control" />
+                    </div>
+                    <div class="col-6">
+                        <label asp-for="QuotaEditor.MaxConcurrentJobs" class="form-label">Параллельных job</label>
+                        <input asp-for="QuotaEditor.MaxConcurrentJobs" class="form-control" />
+                    </div>
+                    <div class="col-6">
+                        <label asp-for="QuotaEditor.MaxJobsPerHour" class="form-label">Job / час</label>
+                        <input asp-for="QuotaEditor.MaxJobsPerHour" class="form-control" />
+                    </div>
+                    <div class="col-6">
+                        <label asp-for="QuotaEditor.MaxAnalysisPerHour" class="form-label">Анализов / час</label>
+                        <input asp-for="QuotaEditor.MaxAnalysisPerHour" class="form-control" />
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="QuotaEditor.Notes" class="form-label">Комментарий</label>
+                        <textarea asp-for="QuotaEditor.Notes" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="form-check mt-3">
+                    <input asp-for="QuotaEditor.IsEnabled" class="form-check-input" />
+                    <label asp-for="QuotaEditor.IsEnabled" class="form-check-label">Перевод разрешён</label>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 mt-3">Сохранить квоту</button>
+            </form>
+        </article>
+    </div>
+    <div class="col-lg-8">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="mb-0">Jobs</h3>
+            <form method="get" class="d-flex gap-2">
+                <select asp-for="State" asp-items="Model.StateOptions" class="form-select form-select-sm"></select>
+                <button type="submit" class="btn btn-outline-light btn-sm">Фильтр</button>
+            </form>
+        </div>
+        <div class="table-shell">
+            <table class="table table-dark table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Мод</th>
+                        <th>Статус</th>
+                        <th>Языки</th>
+                        <th>Лицензия</th>
+                        <th>Устройство</th>
+                        <th>Объём</th>
+                        <th>Время</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in Model.Jobs.Items)
+                {
+                    <tr>
+                        <td>
+                            <strong>@item.ModName</strong>
+                            @if (!string.IsNullOrWhiteSpace(item.FailureReason))
+                            {
+                                <div class="text-danger small mt-1">@item.FailureReason</div>
+                            }
+                        </td>
+                        <td>@item.Status</td>
+                        <td>@item.SourceLanguage → @item.TargetLanguage</td>
+                        <td>@item.LicenseMaskedKey</td>
+                        <td>@item.DeviceName</td>
+                        <td>@item.TotalFiles / @item.TotalSegments / @item.TotalCharacters</td>
+                        <td>@item.RequestedUtc.ToLocalTime().ToString("g")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<section class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <article class="panel">
+            <h3>Glossary</h3>
+            <form method="post" asp-page-handler="SaveGlossary" class="mt-3">
+                <div class="mb-3">
+                    <label asp-for="GlossaryEditor.Name" class="form-label">Название</label>
+                    <input asp-for="GlossaryEditor.Name" class="form-control" />
+                </div>
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label asp-for="GlossaryEditor.Scope" class="form-label">Область</label>
+                        <select asp-for="GlossaryEditor.Scope" asp-items="Model.GlossaryScopeOptions" class="form-select"></select>
+                    </div>
+                    <div class="col-6">
+                        <label asp-for="GlossaryEditor.LicenseId" class="form-label">Лицензия</label>
+                        <select asp-for="GlossaryEditor.LicenseId" asp-items="Model.LicenseOptions" class="form-select">
+                            <option value="">Не требуется</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label asp-for="GlossaryEditor.SourceLanguage" class="form-label">Исходный язык</label>
+                        <input asp-for="GlossaryEditor.SourceLanguage" class="form-control" />
+                    </div>
+                    <div class="col-6">
+                        <label asp-for="GlossaryEditor.TargetLanguage" class="form-label">Целевой язык</label>
+                        <input asp-for="GlossaryEditor.TargetLanguage" class="form-control" />
+                    </div>
+                </div>
+                <div class="mb-3 mt-3">
+                    <label asp-for="GlossaryEditor.Description" class="form-label">Описание</label>
+                    <textarea asp-for="GlossaryEditor.Description" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="GlossaryEditor.TermsText" class="form-label">Термины (`source => target`)</label>
+                    <textarea asp-for="GlossaryEditor.TermsText" class="form-control" rows="5"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="GlossaryEditor.FrozenTermsText" class="form-label">Frozen terms (по одному в строке)</label>
+                    <textarea asp-for="GlossaryEditor.FrozenTermsText" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="GlossaryEditor.SkipTermsText" class="form-label">Skip list (по одному в строке)</label>
+                    <textarea asp-for="GlossaryEditor.SkipTermsText" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label asp-for="GlossaryEditor.Priority" class="form-label">Priority</label>
+                        <input asp-for="GlossaryEditor.Priority" class="form-control" />
+                    </div>
+                    <div class="col-6 d-flex align-items-end">
+                        <div class="form-check mb-2">
+                            <input asp-for="GlossaryEditor.IsActive" class="form-check-input" />
+                            <label asp-for="GlossaryEditor.IsActive" class="form-check-label">Активен</label>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 mt-3">Сохранить glossary</button>
+            </form>
+        </article>
+    </div>
+    <div class="col-lg-6">
+        <article class="panel">
+            <h3>Providers</h3>
+            <div class="table-shell mt-3">
+                <table class="table table-dark align-middle">
+                    <thead>
+                        <tr>
+                            <th>Provider</th>
+                            <th>Статус</th>
+                            <th>Endpoint</th>
+                            <th>Действие</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var provider in Model.Providers)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@provider.DisplayName</strong>
+                                <div class="small text-muted">@provider.ProviderCode</div>
+                            </td>
+                            <td>
+                                <div>@(provider.IsEnabled ? "Включён" : "Выключен")</div>
+                                <div class="small text-muted">@provider.LastKnownStatus</div>
+                            </td>
+                            <td class="small">@provider.Endpoint</td>
+                            <td>
+                                <form method="post" asp-page-handler="ToggleProvider" class="d-flex gap-2">
+                                    <input type="hidden" asp-for="ProviderToggle.ProviderId" value="@provider.Id" />
+                                    <input type="hidden" asp-for="ProviderToggle.IsEnabled" value="@(provider.IsEnabled ? "false" : "true")" />
+                                    <button type="submit" class="btn btn-sm @(provider.IsEnabled ? "btn-outline-danger" : "btn-outline-success")">
+                                        @(provider.IsEnabled ? "Отключить" : "Включить")
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </article>
+        <article class="panel mt-4">
+            <h3>Использование и квоты</h3>
+            <div class="table-shell mt-3">
+                <table class="table table-dark align-middle">
+                    <thead>
+                        <tr>
+                            <th>Лицензия</th>
+                            <th>День</th>
+                            <th>Consumed</th>
+                            <th>Jobs</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var item in Model.Usage)
+                    {
+                        <tr>
+                            <td>@item.CustomerName<div class="small text-muted">@item.LicenseMaskedKey</div></td>
+                            <td>@item.UsageDate</td>
+                            <td>@item.ConsumedCharacters / @item.ReservedCharacters</td>
+                            <td>@item.JobsCompleted completed, @item.JobsFailed failed</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <div class="table-shell mt-4">
+                <table class="table table-dark align-middle">
+                    <thead>
+                        <tr>
+                            <th>Лицензия</th>
+                            <th>Лимиты</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var item in Model.Quotas)
+                    {
+                        <tr>
+                            <td>@item.LicenseMaskedKey</td>
+                            <td>@item.MaxFilesPerJob / @item.MaxSegmentsPerJob / @item.MaxCharactersPerDay</td>
+                            <td>@(item.IsEnabled ? "Активна" : "Отключена")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <div class="table-shell mt-4">
+                <table class="table table-dark align-middle">
+                    <thead>
+                        <tr>
+                            <th>Glossary</th>
+                            <th>Scope</th>
+                            <th>Languages</th>
+                            <th>Terms</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var item in Model.Glossaries)
+                    {
+                        <tr>
+                            <td>@item.Name<div class="small text-muted">@item.Description</div></td>
+                            <td>@item.Scope</td>
+                            <td>@item.SourceLanguage → @item.TargetLanguage</td>
+                            <td>@item.TermsCount / @item.FrozenTermsCount / @item.SkipTermsCount</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </article>
+    </div>
+</section>

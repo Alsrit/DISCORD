@@ -7,7 +7,7 @@ public sealed class ClientSettingsStore(ClientPathService pathService)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private const string LegacyLocalhostUrl = "https://localhost:7043";
-    private const string DefaultServerUrl = "https://194.116.217.48:8443";
+    private const string DefaultServerUrl = "https://194.116.217.48";
 
     public ClientSettings Load()
     {

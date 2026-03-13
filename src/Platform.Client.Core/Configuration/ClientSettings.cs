@@ -4,7 +4,7 @@ namespace Platform.Client.Core.Configuration;
 
 public sealed class ClientSettings
 {
-    public string ServerBaseUrl { get; set; } = "https://194.116.217.48:8443";
+    public string ServerBaseUrl { get; set; } = "https://194.116.217.48";
 
     public UpdateChannelCode PreferredChannel { get; set; } = UpdateChannelCode.Stable;
 
@@ -19,4 +19,10 @@ public sealed class ClientSettings
     public string UpdatePublicKeyPath { get; set; } = string.Empty;
 
     public string InstallationId { get; set; } = string.Empty;
+
+    public string StellarisUserDataPath { get; set; } = string.Empty;
+
+    public string SteamRootPath { get; set; } = string.Empty;
+
+    public string SubmodOutputRoot { get; set; } = string.Empty;
 }

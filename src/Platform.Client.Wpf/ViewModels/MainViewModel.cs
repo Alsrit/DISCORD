@@ -19,10 +19,11 @@ public sealed class MainViewModel : ObservableObject
     private readonly UpdateVerificationService _updateVerificationService;
     private readonly UpdateInstallerService _updateInstallerService;
     private readonly AutostartService _autostartService;
+    private readonly ModTranslationViewModel _modTranslation;
 
     private readonly string _clientVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0";
 
-    private string _currentSection = "Dashboard";
+    private string _currentSection = "ModTranslation";
     private string _activationKey = string.Empty;
     private string _statusMessage = "Готово к работе.";
     private bool _isBusy;
@@ -43,6 +44,9 @@ public sealed class MainViewModel : ObservableObject
     private bool _requireCertificatePinning;
     private string _pinnedCertificatesText = string.Empty;
     private string _updatePublicKeyPath = string.Empty;
+    private string _stellarisUserDataPath = string.Empty;
+    private string _steamRootPath = string.Empty;
+    private string _submodOutputRoot = string.Empty;
     private bool _hasPendingUpdate;
     private string _pendingUpdateVersion = "-";
 
@@ -55,7 +59,8 @@ public sealed class MainViewModel : ObservableObject
         ClientApiService apiService,
         UpdateVerificationService updateVerificationService,
         UpdateInstallerService updateInstallerService,
-        AutostartService autostartService)
+        AutostartService autostartService,
+        ModTranslationViewModel modTranslation)
     {
         _settingsStore = settingsStore;
         _tokenStore = tokenStore;
@@ -64,6 +69,7 @@ public sealed class MainViewModel : ObservableObject
         _updateVerificationService = updateVerificationService;
         _updateInstallerService = updateInstallerService;
         _autostartService = autostartService;
+        _modTranslation = modTranslation;
 
         NavigateCommand = new RelayCommand<string>(section => CurrentSection = section ?? "Dashboard");
         ActivateCommand = new AsyncRelayCommand(ActivateAsync, onError: ex => HandleUnhandledException(ex, "Активация"));
@@ -89,7 +95,13 @@ public sealed class MainViewModel : ObservableObject
     public string CurrentSection
     {
         get => _currentSection;
-        set => SetProperty(ref _currentSection, value);
+        set
+        {
+            if (SetProperty(ref _currentSection, value))
+            {
+                Raise(nameof(CurrentSectionTitle));
+            }
+        }
     }
 
     public string ActivationKey
@@ -226,6 +238,24 @@ public sealed class MainViewModel : ObservableObject
         set => SetProperty(ref _updatePublicKeyPath, value);
     }
 
+    public string StellarisUserDataPath
+    {
+        get => _stellarisUserDataPath;
+        set => SetProperty(ref _stellarisUserDataPath, value);
+    }
+
+    public string SteamRootPath
+    {
+        get => _steamRootPath;
+        set => SetProperty(ref _steamRootPath, value);
+    }
+
+    public string SubmodOutputRoot
+    {
+        get => _submodOutputRoot;
+        set => SetProperty(ref _submodOutputRoot, value);
+    }
+
     public bool HasPendingUpdate
     {
         get => _hasPendingUpdate;
@@ -245,6 +275,19 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public string ClientVersion => _clientVersion;
+
+    public string CurrentSectionTitle => CurrentSection switch
+    {
+        "Dashboard" => "Главная",
+        "ModTranslation" => "Перевод модов",
+        "Diagnostics" => "Перевод модов",
+        "Logs" => "Журнал",
+        "Settings" => "Настройки",
+        "About" => "О программе",
+        _ => CurrentSection
+    };
+
+    public ModTranslationViewModel ModTranslation => _modTranslation;
 
     public string AboutText =>
         $"Secure License Platform Client{Environment.NewLine}" +
@@ -274,6 +317,7 @@ public sealed class MainViewModel : ObservableObject
         {
             IsActivated = _tokenStore.Load() is not null;
             await RefreshStateAsync(false);
+            await _modTranslation.InitializeAsync(IsActivated);
             if (IsActivated && AutoCheckUpdates)
             {
                 await CheckUpdatesAsync();
@@ -311,6 +355,8 @@ public sealed class MainViewModel : ObservableObject
             LastSyncText = DateTimeOffset.Now.ToString("g");
             StatusMessage = "Лицензия успешно активирована.";
             ActivationKey = string.Empty;
+            _modTranslation.UpdateSessionAvailability(true);
+            await _modTranslation.RefreshRemoteDataAsync();
             LoadLogs();
         }
         finally
@@ -474,6 +520,9 @@ public sealed class MainViewModel : ObservableObject
             RequireCertificatePinning = RequireCertificatePinning,
             PinnedSpkiSha256 = ParsePins(PinnedCertificatesText),
             UpdatePublicKeyPath = UpdatePublicKeyPath,
+            StellarisUserDataPath = StellarisUserDataPath,
+            SteamRootPath = SteamRootPath,
+            SubmodOutputRoot = SubmodOutputRoot,
             PreferredChannel = current.PreferredChannel,
             InstallationId = current.InstallationId
         };
@@ -507,6 +556,9 @@ public sealed class MainViewModel : ObservableObject
         RequireCertificatePinning = settings.RequireCertificatePinning;
         PinnedCertificatesText = string.Join(Environment.NewLine, settings.PinnedSpkiSha256);
         UpdatePublicKeyPath = settings.UpdatePublicKeyPath;
+        StellarisUserDataPath = settings.StellarisUserDataPath;
+        SteamRootPath = settings.SteamRootPath;
+        SubmodOutputRoot = settings.SubmodOutputRoot;
 
         if (string.IsNullOrWhiteSpace(UpdatePublicKeyPath))
         {
@@ -556,7 +608,7 @@ public sealed class MainViewModel : ObservableObject
     }
 
     private static List<string> ParsePins(string text) =>
-        text.Split([',', ';', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        text.Split(new[] { ',', ';', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Distinct(StringComparer.Ordinal)
             .ToList();
 }
